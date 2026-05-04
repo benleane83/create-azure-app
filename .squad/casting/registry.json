@@ -1,0 +1,39 @@
+{
+  "agents": {
+    "lead": {
+      "persistent_name": "Morpheus",
+      "universe": "The Matrix",
+      "created_at": "2026-05-04T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "cli-dev": {
+      "persistent_name": "Neo",
+      "universe": "The Matrix",
+      "created_at": "2026-05-04T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "fullstack-dev": {
+      "persistent_name": "Trinity",
+      "universe": "The Matrix",
+      "created_at": "2026-05-04T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "infra-dev": {
+      "persistent_name": "Tank",
+      "universe": "The Matrix",
+      "created_at": "2026-05-04T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "tester": {
+      "persistent_name": "Mouse",
+      "universe": "The Matrix",
+      "created_at": "2026-05-04T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    }
+  }
+}

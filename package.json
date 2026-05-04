@@ -1,0 +1,43 @@
+{
+  "name": "create-azure-app",
+  "version": "0.1.0",
+  "description": "Interactive CLI that scaffolds AZD-compatible full-stack Azure projects (SWA + Functions + PostgreSQL + Entra ID)",
+  "type": "module",
+  "bin": {
+    "create-azure-app": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "azure",
+    "scaffolder",
+    "cli",
+    "static-web-apps",
+    "azure-functions",
+    "postgresql",
+    "create-app"
+  ],
+  "author": "Ben Leane",
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^0.10.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

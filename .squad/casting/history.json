@@ -1,0 +1,22 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "The Matrix",
+      "assignment_id": "create-azure-app-001",
+      "used_at": "2026-05-04T00:00:00Z"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "create-azure-app-001": {
+      "universe": "The Matrix",
+      "agents": {
+        "lead": "Morpheus",
+        "cli-dev": "Neo",
+        "fullstack-dev": "Trinity",
+        "infra-dev": "Tank",
+        "tester": "Mouse"
+      },
+      "created_at": "2026-05-04T00:00:00Z"
+    }
+  }
+}
