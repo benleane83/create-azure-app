@@ -1,0 +1,550 @@
+import type { Feature } from '../composer.js';
+
+export function databaseFeature(config: {
+  orm: 'prisma' | 'drizzle';
+  projectName: string;
+}): Feature {
+  if (config.orm === 'prisma') {
+    return prismaFeature(config.projectName);
+  }
+  return drizzleFeature(config.projectName);
+}
+
+// ─── Prisma ──────────────────────────────────────────────────────────────────
+
+function prismaFeature(projectName: string): Feature {
+  return {
+    name: 'database-prisma',
+    files: [
+      {
+        path: 'db/schema.prisma',
+        content: `// Prisma schema for ${projectName}
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items Item[]
+}
+
+model Item {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+}
+`,
+      },
+      {
+        path: 'db/seed.ts',
+        content: `import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main(): Promise<void> {
+  console.log('🌱 Seeding database...');
+
+  const alice = await prisma.user.upsert({
+    where: { email: 'alice@example.com' },
+    update: {},
+    create: {
+      email: 'alice@example.com',
+      name: 'Alice',
+      items: {
+        create: [
+          { title: 'Learn Azure', description: 'Explore Azure Static Web Apps and Functions', completed: false },
+          { title: 'Build API', description: 'Create CRUD endpoints with Azure Functions', completed: true },
+        ],
+      },
+    },
+  });
+
+  const bob = await prisma.user.upsert({
+    where: { email: 'bob@example.com' },
+    update: {},
+    create: {
+      email: 'bob@example.com',
+      name: 'Bob',
+      items: {
+        create: [
+          { title: 'Set up CI/CD', description: 'Configure GitHub Actions for deployment', completed: false },
+        ],
+      },
+    },
+  });
+
+  console.log(\`✅ Seeded \${alice.name} and \${bob.name}\`);
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+`,
+      },
+      {
+        path: 'src/api/src/lib/db.ts',
+        content: `import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+export default prisma;
+`,
+      },
+      {
+        path: 'src/api/src/functions/items.ts',
+        content: `import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from '@azure/functions';
+import prisma from '../lib/db.js';
+
+// GET /api/items
+app.http('listItems', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'items',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const items = await prisma.item.findMany({ orderBy: { createdAt: 'desc' } });
+    return { jsonBody: items };
+  },
+});
+
+// GET /api/items/{id}
+app.http('getItem', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'items/{id}',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const id = Number(request.params.id);
+    if (isNaN(id)) {
+      return { status: 400, jsonBody: { error: 'Invalid item ID' } };
+    }
+
+    const item = await prisma.item.findUnique({ where: { id } });
+    if (!item) {
+      return { status: 404, jsonBody: { error: 'Item not found' } };
+    }
+
+    return { jsonBody: item };
+  },
+});
+
+// POST /api/items
+app.http('createItem', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'items',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const body = (await request.json()) as {
+      title?: string;
+      description?: string;
+      userId?: number;
+    };
+
+    if (!body.title) {
+      return { status: 400, jsonBody: { error: 'Title is required' } };
+    }
+    if (!body.userId) {
+      return { status: 400, jsonBody: { error: 'userId is required' } };
+    }
+
+    const item = await prisma.item.create({
+      data: {
+        title: body.title,
+        description: body.description ?? null,
+        userId: body.userId,
+      },
+    });
+
+    return { status: 201, jsonBody: item };
+  },
+});
+
+// PUT /api/items/{id}
+app.http('updateItem', {
+  methods: ['PUT'],
+  authLevel: 'anonymous',
+  route: 'items/{id}',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const id = Number(request.params.id);
+    if (isNaN(id)) {
+      return { status: 400, jsonBody: { error: 'Invalid item ID' } };
+    }
+
+    const existing = await prisma.item.findUnique({ where: { id } });
+    if (!existing) {
+      return { status: 404, jsonBody: { error: 'Item not found' } };
+    }
+
+    const body = (await request.json()) as {
+      title?: string;
+      description?: string;
+      completed?: boolean;
+    };
+
+    const item = await prisma.item.update({
+      where: { id },
+      data: {
+        ...(body.title !== undefined && { title: body.title }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.completed !== undefined && { completed: body.completed }),
+      },
+    });
+
+    return { jsonBody: item };
+  },
+});
+
+// DELETE /api/items/{id}
+app.http('deleteItem', {
+  methods: ['DELETE'],
+  authLevel: 'anonymous',
+  route: 'items/{id}',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const id = Number(request.params.id);
+    if (isNaN(id)) {
+      return { status: 400, jsonBody: { error: 'Invalid item ID' } };
+    }
+
+    const existing = await prisma.item.findUnique({ where: { id } });
+    if (!existing) {
+      return { status: 404, jsonBody: { error: 'Item not found' } };
+    }
+
+    await prisma.item.delete({ where: { id } });
+    return { status: 204 };
+  },
+});
+`,
+      },
+    ],
+    dependencies: {
+      '@prisma/client': '^6.2.0',
+    },
+    devDependencies: {
+      prisma: '^6.2.0',
+    },
+    scripts: {
+      'db:generate': 'prisma generate --schema=db/schema.prisma',
+      'db:migrate': 'prisma migrate dev --schema=db/schema.prisma',
+      'db:seed': 'tsx db/seed.ts',
+      'db:push': 'prisma db push --schema=db/schema.prisma',
+    },
+  };
+}
+
+// ─── Drizzle ─────────────────────────────────────────────────────────────────
+
+function drizzleFeature(projectName: string): Feature {
+  return {
+    name: 'database-drizzle',
+    files: [
+      {
+        path: 'db/schema.ts',
+        content: `// Drizzle schema for ${projectName}
+// Docs: https://orm.drizzle.team/docs/sql-schema-declaration
+
+import { serial, varchar, text, boolean, timestamp, integer, pgTable } from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  name: varchar('name', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const items = pgTable('items', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  completed: boolean('completed').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id),
+});
+`,
+      },
+      {
+        path: 'db/seed.ts',
+        content: `import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+import * as schema from './schema.js';
+
+async function main(): Promise<void> {
+  const pool = new Pool({ connectionString: process.env['DATABASE_URL'] });
+  const db = drizzle(pool, { schema });
+
+  console.log('🌱 Seeding database...');
+
+  const [alice] = await db
+    .insert(schema.users)
+    .values({ email: 'alice@example.com', name: 'Alice' })
+    .onConflictDoNothing()
+    .returning();
+
+  const [bob] = await db
+    .insert(schema.users)
+    .values({ email: 'bob@example.com', name: 'Bob' })
+    .onConflictDoNothing()
+    .returning();
+
+  if (alice) {
+    await db.insert(schema.items).values([
+      { title: 'Learn Azure', description: 'Explore Azure Static Web Apps and Functions', completed: false, userId: alice.id },
+      { title: 'Build API', description: 'Create CRUD endpoints with Azure Functions', completed: true, userId: alice.id },
+    ]).onConflictDoNothing();
+  }
+
+  if (bob) {
+    await db.insert(schema.items).values([
+      { title: 'Set up CI/CD', description: 'Configure GitHub Actions for deployment', completed: false, userId: bob.id },
+    ]).onConflictDoNothing();
+  }
+
+  console.log('✅ Seeded sample users and items');
+  await pool.end();
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+`,
+      },
+      {
+        path: 'db/drizzle.config.ts',
+        content: `import { defineConfig } from 'drizzle-kit';
+
+export default defineConfig({
+  schema: './db/schema.ts',
+  out: './db/migrations',
+  dialect: 'postgresql',
+  dbCredentials: {
+    url: process.env['DATABASE_URL']!,
+  },
+});
+`,
+      },
+      {
+        path: 'src/api/src/lib/db.ts',
+        content: `import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+import * as schema from '../../../../db/schema.js';
+
+const pool = new Pool({
+  connectionString: process.env['DATABASE_URL'],
+});
+
+export const db = drizzle(pool, { schema });
+export default db;
+`,
+      },
+      {
+        path: 'src/api/src/functions/items.ts',
+        content: `import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from '@azure/functions';
+import { eq } from 'drizzle-orm';
+import db from '../lib/db.js';
+import { items } from '../../../../db/schema.js';
+
+// GET /api/items
+app.http('listItems', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'items',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const rows = await db.select().from(items).orderBy(items.createdAt);
+    return { jsonBody: rows };
+  },
+});
+
+// GET /api/items/{id}
+app.http('getItem', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'items/{id}',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const id = Number(request.params.id);
+    if (isNaN(id)) {
+      return { status: 400, jsonBody: { error: 'Invalid item ID' } };
+    }
+
+    const [item] = await db.select().from(items).where(eq(items.id, id));
+    if (!item) {
+      return { status: 404, jsonBody: { error: 'Item not found' } };
+    }
+
+    return { jsonBody: item };
+  },
+});
+
+// POST /api/items
+app.http('createItem', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'items',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const body = (await request.json()) as {
+      title?: string;
+      description?: string;
+      userId?: number;
+    };
+
+    if (!body.title) {
+      return { status: 400, jsonBody: { error: 'Title is required' } };
+    }
+    if (!body.userId) {
+      return { status: 400, jsonBody: { error: 'userId is required' } };
+    }
+
+    const [item] = await db
+      .insert(items)
+      .values({
+        title: body.title,
+        description: body.description ?? null,
+        userId: body.userId,
+      })
+      .returning();
+
+    return { status: 201, jsonBody: item };
+  },
+});
+
+// PUT /api/items/{id}
+app.http('updateItem', {
+  methods: ['PUT'],
+  authLevel: 'anonymous',
+  route: 'items/{id}',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const id = Number(request.params.id);
+    if (isNaN(id)) {
+      return { status: 400, jsonBody: { error: 'Invalid item ID' } };
+    }
+
+    const [existing] = await db.select().from(items).where(eq(items.id, id));
+    if (!existing) {
+      return { status: 404, jsonBody: { error: 'Item not found' } };
+    }
+
+    const body = (await request.json()) as {
+      title?: string;
+      description?: string;
+      completed?: boolean;
+    };
+
+    const [updated] = await db
+      .update(items)
+      .set({
+        ...(body.title !== undefined && { title: body.title }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.completed !== undefined && { completed: body.completed }),
+        updatedAt: new Date(),
+      })
+      .where(eq(items.id, id))
+      .returning();
+
+    return { jsonBody: updated };
+  },
+});
+
+// DELETE /api/items/{id}
+app.http('deleteItem', {
+  methods: ['DELETE'],
+  authLevel: 'anonymous',
+  route: 'items/{id}',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const id = Number(request.params.id);
+    if (isNaN(id)) {
+      return { status: 400, jsonBody: { error: 'Invalid item ID' } };
+    }
+
+    const [existing] = await db.select().from(items).where(eq(items.id, id));
+    if (!existing) {
+      return { status: 404, jsonBody: { error: 'Item not found' } };
+    }
+
+    await db.delete(items).where(eq(items.id, id));
+    return { status: 204 };
+  },
+});
+`,
+      },
+    ],
+    dependencies: {
+      'drizzle-orm': '^0.38.0',
+      pg: '^8.13.0',
+    },
+    devDependencies: {
+      'drizzle-kit': '^0.30.0',
+      '@types/pg': '^8.11.0',
+    },
+    scripts: {
+      'db:generate': 'drizzle-kit generate',
+      'db:migrate': 'drizzle-kit migrate',
+      'db:seed': 'tsx db/seed.ts',
+      'db:push': 'drizzle-kit push',
+    },
+  };
+}

@@ -1,7 +1,22 @@
 #!/usr/bin/env node
 
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
+import { compose, writeProject } from './composer.js';
+import { baseFeature, buildRootPackageJson } from './features/base.js';
+import { pmRun, pmInstall } from './utils.js';
+import { nextjsFeature } from './features/nextjs.js';
+import { viteReactFeature } from './features/vite-react.js';
+import { sveltekitFeature } from './features/sveltekit.js';
+import { apiFeature } from './features/api.js';
+import { databaseFeature } from './features/database.js';
+import { authFeature } from './features/auth.js';
+import { dockerFeature } from './features/docker.js';
+import { swaConfigFeature } from './features/swa-config.js';
+import { envFeature } from './features/env.js';
+import { infraFeature } from './features/infra.js';
 
 type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
 type ORM = 'prisma' | 'drizzle';
@@ -97,10 +112,70 @@ async function main(): Promise<void> {
     'Project Configuration'
   );
 
-  // TODO: Phase 2 — compose features and write project to disk
-  p.log.info('Project generation not yet implemented — feature modules coming in Phase 2.');
+  // Assemble features based on user choices
+  const frameworkFeature =
+    config.framework === 'nextjs' ? nextjsFeature(config) :
+    config.framework === 'vite-react' ? viteReactFeature(config) :
+    sveltekitFeature(config);
 
-  p.outro(pc.green('Done! Configuration captured successfully.'));
+  const features = [
+    baseFeature(config.projectName, config.packageManager),
+    frameworkFeature,
+    apiFeature(config),
+    databaseFeature({ orm: config.orm, projectName: config.projectName }),
+    dockerFeature({ projectName: config.projectName }),
+    swaConfigFeature({ framework: config.framework, packageManager: config.packageManager }),
+    envFeature({ projectName: config.projectName, orm: config.orm, includeAuth: config.includeAuth, packageManager: config.packageManager }),
+    infraFeature(config),
+  ];
+
+  if (config.includeAuth) {
+    features.push(authFeature({ framework: config.framework }));
+  }
+
+  // Compose all features into a unified project
+  const composed = compose(features);
+  const rootPkgContent = buildRootPackageJson(config.projectName, composed);
+  const allFiles = [
+    ...composed.files,
+    { path: 'package.json', content: rootPkgContent },
+  ];
+
+  // Resolve output directory and check for existing
+  const projectDir = resolve(process.cwd(), config.projectName);
+
+  if (existsSync(projectDir)) {
+    const shouldOverwrite = await p.confirm({
+      message: `Directory ./${config.projectName} already exists. Overwrite?`,
+      initialValue: false,
+    });
+
+    if (p.isCancel(shouldOverwrite) || !shouldOverwrite) {
+      p.cancel('Project generation cancelled.');
+      process.exit(0);
+    }
+  }
+
+  // Generate project files
+  const s = p.spinner();
+  s.start('Generating project files...');
+
+  await writeProject(projectDir, allFiles);
+
+  s.stop(`Generated ${allFiles.length} files.`);
+
+  // Success!
+  p.note(
+    [
+      `cd ${config.projectName}`,
+      `${pmInstall(config.packageManager)}         # Install root dependencies`,
+      `${pmRun(config.packageManager, 'setup')}    # Start Docker + install sub-projects + migrations + seed`,
+      `${pmRun(config.packageManager, 'dev')}      # Start dev server on localhost:4280`,
+    ].join('\n'),
+    'Next steps'
+  );
+
+  p.outro(pc.green(`✅ Project created at ./${config.projectName}`));
 }
 
 function formatFramework(fw: Framework): string {

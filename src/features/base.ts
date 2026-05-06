@@ -1,4 +1,6 @@
 import type { Feature, ComposedProject } from '../composer.js';
+import type { PackageManager } from '../utils.js';
+import { pmRun, pmInstall } from '../utils.js';
 
 const GITIGNORE = `# Dependencies
 node_modules/
@@ -64,7 +66,7 @@ function sortObject(obj: Record<string, string>): Record<string, string> {
  * The root package.json is NOT included here — it's generated separately via
  * buildRootPackageJson() after all features are composed, so it can merge all deps/scripts.
  */
-export function baseFeature(projectName: string): Feature {
+export function baseFeature(projectName: string, packageManager: PackageManager): Feature {
   return {
     name: 'base',
     files: [
@@ -81,11 +83,14 @@ Built with [create-azure-app](https://github.com/bradygaster/create-azure-app).
 ## Getting Started
 
 \`\`\`bash
-# Start local services (PostgreSQL via Docker)
-npm run setup
+# Install root dependencies
+${pmInstall(packageManager)}
+
+# Start local services (PostgreSQL via Docker) + install sub-projects
+${pmRun(packageManager, 'setup')}
 
 # Start development server
-npm run dev
+${pmRun(packageManager, 'dev')}
 
 # Deploy to Azure
 azd up
