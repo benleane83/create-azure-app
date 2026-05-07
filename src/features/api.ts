@@ -32,7 +32,7 @@ export function apiFeature(config: ProjectConfig): Feature {
               version: '0.1.0',
               private: true,
               type: 'module',
-              main: 'dist/src/functions/*.js',
+              main: isPrisma ? 'dist/src/functions/*.js' : 'dist/src/api/src/functions/*.js',
               scripts: apiScripts,
               dependencies: {
                 '@azure/functions': '^4.6.0',
@@ -56,7 +56,7 @@ export function apiFeature(config: ProjectConfig): Feature {
                 module: 'Node16',
                 moduleResolution: 'Node16',
                 outDir: 'dist',
-                rootDir: '.',
+                rootDir: isPrisma ? '.' : '../..',
                 strict: true,
                 esModuleInterop: true,
                 skipLibCheck: true,
@@ -64,7 +64,9 @@ export function apiFeature(config: ProjectConfig): Feature {
                 resolveJsonModule: true,
                 sourceMap: true,
               },
-              include: ['src/**/*.ts'],
+              include: isPrisma
+                ? ['src/**/*.ts']
+                : ['src/**/*.ts', '../../db/**/*.ts'],
             },
             null,
             2

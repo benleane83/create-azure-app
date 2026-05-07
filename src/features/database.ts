@@ -447,7 +447,7 @@ main().catch((e) => {
 `,
       },
       {
-        path: 'db/drizzle.config.ts',
+        path: 'drizzle.config.ts',
         content: `import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({
@@ -635,7 +635,7 @@ app.http('deleteItem', {
     scripts: {
       'db:generate': 'drizzle-kit generate',
       'db:migrate': 'drizzle-kit migrate',
-      'db:seed': 'tsx db/seed.ts',
+      'db:seed': 'tsx --env-file=.env db/seed.ts',
       'db:push': 'drizzle-kit push',
     },
   };

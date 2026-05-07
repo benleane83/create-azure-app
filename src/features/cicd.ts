@@ -68,7 +68,6 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy
-    environment: production
     steps:
       - uses: actions/checkout@v4
 
@@ -114,7 +113,6 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     name: Close Preview Environment
-    environment: production
     steps:
       - name: Log in to Azure
         uses: azure/login@v2
@@ -162,7 +160,6 @@ jobs:
   provision:
     runs-on: ubuntu-latest
     name: Provision Azure Resources
-    environment: production
     steps:
       - uses: actions/checkout@v4
 

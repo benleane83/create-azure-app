@@ -90,7 +90,7 @@ export function envFeature(config: EnvConfigOptions): Feature {
       'azure-functions-core-tools': '^4.0.0',
     },
     scripts: {
-      setup: `${pmInstall(config.packageManager)} && docker compose up -d && ${pmRun(config.packageManager, 'install:api')} && ${pmRun(config.packageManager, 'install:web')} && ${pmRun(config.packageManager, 'build:api')} && ${pmRun(config.packageManager, 'db:migrate')} && ${pmRun(config.packageManager, 'db:seed')}`,
+      setup: `${pmInstall(config.packageManager)} && docker compose up -d && ${pmRun(config.packageManager, 'install:api')} && ${pmRun(config.packageManager, 'install:web')} && ${pmRun(config.packageManager, 'build:api')} && ${pmRun(config.packageManager, 'db:push')} && ${pmRun(config.packageManager, 'db:seed')}`,
       dev: 'swa start',
     },
   };
