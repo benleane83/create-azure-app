@@ -153,7 +153,7 @@ git remote add origin https://github.com/YOU/my-app.git
 git push -u origin main
 
 # Configure OIDC + GitHub variables (one-time)
-azd pipeline config --provider github
+azd pipeline config --provider github --auth-type federated --no-prompt
 ```
 
 `azd pipeline config` creates a service principal with federated credentials and
