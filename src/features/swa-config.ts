@@ -55,6 +55,7 @@ function buildSwaConfig(framework: Framework, packageManager: PackageManager): S
             ...base,
             outputLocation: 'dist',
             appDevserverUrl: 'http://localhost:5173',
+            run: pmRun(packageManager, 'dev'),
           },
         },
       };
@@ -66,6 +67,7 @@ function buildSwaConfig(framework: Framework, packageManager: PackageManager): S
             ...base,
             outputLocation: 'build',
             appDevserverUrl: 'http://localhost:5173',
+            run: pmRun(packageManager, 'dev'),
           },
         },
       };

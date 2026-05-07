@@ -7,7 +7,7 @@ import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import { compose, writeProject } from './composer.js';
 import { baseFeature, buildRootPackageJson } from './features/base.js';
-import { pmRun, pmInstall } from './utils.js';
+import { pmRun, pmInstall, type PackageManager } from './utils.js';
 import { nextjsFeature } from './features/nextjs.js';
 import { viteReactFeature } from './features/vite-react.js';
 import { sveltekitFeature } from './features/sveltekit.js';
@@ -22,7 +22,6 @@ import { cicdFeature } from './features/cicd.js';
 
 type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
 type ORM = 'prisma' | 'drizzle';
-type PackageManager = 'npm' | 'pnpm' | 'yarn';
 
 export interface ProjectConfig {
   projectName: string;

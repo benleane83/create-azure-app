@@ -41,6 +41,7 @@ function swaConfigContent(): string {
           route: '/api/*',
           allowedRoles: ['authenticated'],
         },
+        // catch-all MUST be last — SWA evaluates routes top-to-bottom
         {
           route: '/*',
           allowedRoles: ['authenticated'],
