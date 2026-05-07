@@ -80,7 +80,7 @@ export function baseFeature(projectName: string, packageManager: PackageManager)
 
 Built with [create-azure-app](https://github.com/bradygaster/create-azure-app).
 
-## Getting Started
+## Quick Start (Local Development)
 
 \`\`\`bash
 # Install root dependencies
@@ -91,63 +91,67 @@ ${pmRun(packageManager, 'setup')}
 
 # Start development server
 ${pmRun(packageManager, 'dev')}
+\`\`\`
 
-# Deploy to Azure
+## Deploy to Azure
+
+### First-time setup
+
+\`\`\`bash
+# 1. Provision Azure infrastructure (SWA, PostgreSQL, Key Vault, etc.)
 azd up
+
+# 2. Push your code to GitHub
+git remote add origin https://github.com/YOUR_USER/${projectName}.git
+git push -u origin main
+
+# 3. Configure OIDC credentials for GitHub Actions
+azd pipeline config --provider github
 \`\`\`
 
-## Project Structure
+\`azd pipeline config\` creates a service principal with federated credentials and
+stores \`AZURE_CLIENT_ID\`, \`AZURE_TENANT_ID\`, \`AZURE_SUBSCRIPTION_ID\`,
+\`AZURE_ENV_NAME\`, and \`AZURE_LOCATION\` as GitHub **repository variables**
+automatically — no manual setup needed.
 
-\`\`\`
-├── .github/
-│   └── workflows/
-│       ├── deploy.yml      # Build + deploy (prod & preview)
-│       └── provision.yml   # Azure infrastructure provisioning
-├── src/
-│   ├── web/          # Frontend application
-│   └── api/          # Azure Functions API
-├── db/
-│   ├── migrations/   # Database migrations
-│   └── schema.*      # ORM schema
-├── infra/            # Bicep infrastructure
-├── azure.yaml        # AZD manifest
-└── docker-compose.yml
-\`\`\`
+### After setup
 
-## CI/CD
+Every push to \`main\` triggers the **Deploy** workflow automatically. That's it.
 
-This project includes GitHub Actions workflows that mirror the Vercel deployment model:
+To re-provision infrastructure (e.g., after changing Bicep files), run the
+**Provision** workflow manually from the Actions tab.
+
+## CI/CD Workflows
+
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| **deploy.yml** | Push to \`main\`, PR open/sync | Builds the app, deploys to Azure Static Web Apps |
+| **deploy.yml** | PR closed | Tears down preview environment |
+| **provision.yml** | Manual (\`workflow_dispatch\`) | Runs \`azd provision\` to create/update infrastructure |
 
 - **Push to \`main\`** → deploys to your **production** Static Web App
 - **Pull request** → deploys to a **preview environment** with a unique URL
 - **PR closed** → automatically tears down the preview environment
 
-### Setup
+The deploy workflow uses OIDC to authenticate with Azure and fetches the SWA
+deployment token dynamically — no static secrets to manage.
 
-1. **Provision infrastructure** (one-time):
-   \`\`\`bash
-   azd up
-   \`\`\`
+## Project Structure
 
-2. **Get the SWA deployment token**:
-   \`\`\`bash
-   az staticwebapp secrets list --name <your-swa-name> --query "properties.apiKey" -o tsv
-   \`\`\`
-
-3. **Add repository secrets** in GitHub → Settings → Secrets and variables → Actions:
-   | Secret | Description |
-   |--------|-------------|
-   | \`AZURE_STATIC_WEB_APPS_API_TOKEN\` | SWA deployment token from step 2 |
-   | \`AZURE_CLIENT_ID\` | App registration client ID (for OIDC) |
-   | \`AZURE_TENANT_ID\` | Entra ID tenant ID |
-   | \`AZURE_SUBSCRIPTION_ID\` | Azure subscription ID |
-   | \`AZURE_LOCATION\` | Azure region (e.g. \`eastus2\`) |
-
-4. **Configure OIDC federated credentials** on your Entra app registration:
-   - Subject: \`repo:<owner>/<repo>:environment:production\`
-   - Issuer: \`https://token.actions.githubusercontent.com\`
-
-Once configured, every push to \`main\` deploys automatically, and every PR gets its own preview URL.
+\`\`\`
+├── .github/workflows/
+│   ├── deploy.yml        # Build + deploy (prod & preview)
+│   └── provision.yml     # Azure infra provisioning (manual)
+├── src/
+│   ├── web/              # Frontend application
+│   └── api/              # Azure Functions API
+├── db/
+│   ├── migrations/       # Database migrations
+│   └── schema.*          # ORM schema
+├── infra/                # Bicep infrastructure modules
+├── azure.yaml            # AZD manifest
+└── docker-compose.yml    # Local PostgreSQL
+\`\`\`
 `,
       },
       {

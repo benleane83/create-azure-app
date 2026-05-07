@@ -1,7 +1,5 @@
 # Feature and bug backlog for create-azure-app
 
-
-- CI/CD not integrated yet
 - Add Tailwind + ShadCN as optional frontend frameworks
 - Migrate to OpenTelemetry native logging
 - Add Redis for optional caching

@@ -2,6 +2,7 @@
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { execFile } from 'node:child_process';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import { compose, writeProject } from './composer.js';
@@ -165,6 +166,14 @@ async function main(): Promise<void> {
   await writeProject(projectDir, allFiles);
 
   s.stop(`Generated ${allFiles.length} files.`);
+
+  // Initialize git repo
+  await new Promise<void>((res) => {
+    execFile('git', ['init'], { cwd: projectDir }, (err) => {
+      if (!err) p.log.success('Initialized git repository.');
+      res();
+    });
+  });
 
   // Success!
   p.note(

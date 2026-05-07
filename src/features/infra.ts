@@ -449,6 +449,7 @@ function mainParametersJson(): string {
       parameters: {
         environmentName: { value: '${AZURE_ENV_NAME}' },
         location: { value: '${AZURE_LOCATION}' },
+        dbAdminPassword: { value: '${AZURE_DB_ADMIN_PASSWORD}' },
       },
     },
     null,
