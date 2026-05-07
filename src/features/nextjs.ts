@@ -32,6 +32,10 @@ export function nextjsFeature(config: ProjectConfig): Feature {
                 '@types/react': '^19.1.0',
                 '@types/react-dom': '^19.1.0',
                 typescript: '^5.8.0',
+                ...(config.includeTailwind ? {
+                  tailwindcss: '^4.0.0',
+                  '@tailwindcss/postcss': '^4.0.0',
+                } : {}),
               },
             },
             null,

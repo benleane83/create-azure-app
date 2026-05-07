@@ -32,6 +32,10 @@ export function viteReactFeature(config: ProjectConfig): Feature {
                 '@vitejs/plugin-react': '^4.4.0',
                 typescript: '^5.8.0',
                 vite: '^6.3.0',
+                ...(config.includeTailwind ? {
+                  tailwindcss: '^4.0.0',
+                  '@tailwindcss/postcss': '^4.0.0',
+                } : {}),
               },
             },
             null,

@@ -31,6 +31,10 @@ export function sveltekitFeature(config: ProjectConfig): Feature {
                 'svelte-check': '^4.0.0',
                 typescript: '^5.8.0',
                 vite: '^6.3.0',
+                ...(config.includeTailwind ? {
+                  tailwindcss: '^4.0.0',
+                  '@tailwindcss/postcss': '^4.0.0',
+                } : {}),
               },
             },
             null,
