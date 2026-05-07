@@ -19,6 +19,7 @@ import { swaConfigFeature } from './features/swa-config.js';
 import { envFeature } from './features/env.js';
 import { infraFeature } from './features/infra.js';
 import { cicdFeature } from './features/cicd.js';
+import { tailwindFeature } from './features/tailwind.js';
 
 type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
 type ORM = 'prisma' | 'drizzle';
@@ -28,6 +29,7 @@ export interface ProjectConfig {
   framework: Framework;
   orm: ORM;
   includeAuth: boolean;
+  includeTailwind: boolean;
   packageManager: PackageManager;
 }
 
@@ -75,6 +77,12 @@ async function main(): Promise<void> {
           initialValue: true,
         }),
 
+      includeTailwind: () =>
+        p.confirm({
+          message: 'Include Tailwind CSS?',
+          initialValue: false,
+        }),
+
       packageManager: () =>
         p.select({
           message: 'Which package manager?',
@@ -99,6 +107,7 @@ async function main(): Promise<void> {
     framework: answers.framework as Framework,
     orm: answers.orm as ORM,
     includeAuth: answers.includeAuth as boolean,
+    includeTailwind: answers.includeTailwind as boolean,
     packageManager: answers.packageManager as PackageManager,
   };
 
@@ -108,6 +117,7 @@ async function main(): Promise<void> {
       `${pc.bold('Framework:')}    ${formatFramework(config.framework)}`,
       `${pc.bold('ORM:')}          ${formatORM(config.orm)}`,
       `${pc.bold('Auth:')}         ${config.includeAuth ? 'Yes (Entra ID)' : 'No'}`,
+      `${pc.bold('Tailwind:')}     ${config.includeTailwind ? 'Yes (v4)' : 'No'}`,
       `${pc.bold('Pkg Manager:')}  ${config.packageManager}`,
     ].join('\n'),
     'Project Configuration'
@@ -130,6 +140,10 @@ async function main(): Promise<void> {
     infraFeature(config),
     cicdFeature({ projectName: config.projectName, framework: config.framework, packageManager: config.packageManager }),
   ];
+
+  if (config.includeTailwind) {
+    features.push(tailwindFeature({ framework: config.framework }));
+  }
 
   if (config.includeAuth) {
     features.push(authFeature({ framework: config.framework }));
@@ -168,7 +182,7 @@ async function main(): Promise<void> {
 
   // Initialize git repo
   await new Promise<void>((res) => {
-    execFile('git', ['init'], { cwd: projectDir }, (err) => {
+    execFile('git', ['init', '-b', 'main'], { cwd: projectDir }, (err) => {
       if (!err) p.log.success('Initialized git repository.');
       res();
     });
