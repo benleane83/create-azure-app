@@ -71,8 +71,8 @@ async function main(): Promise<void> {
       name: 'Alice',
       items: {
         create: [
-          { title: 'Learn Azure', description: 'Explore Azure Static Web Apps and Functions', completed: false },
-          { title: 'Build API', description: 'Create CRUD endpoints with Azure Functions', completed: true },
+          { title: 'Create your app', description: 'Choose your frontend framework, ORM, and auth preferences to generate your Azure project.', completed: false },
+          { title: 'Develop locally', description: 'Run your full stack locally with Docker PostgreSQL, SWA CLI, and hot reload across frontend and API.', completed: false },
         ],
       },
     },
@@ -86,7 +86,8 @@ async function main(): Promise<void> {
       name: 'Bob',
       items: {
         create: [
-          { title: 'Set up CI/CD', description: 'Configure GitHub Actions for deployment', completed: false },
+          { title: 'Deploy to Azure', description: 'Provision infrastructure and deploy your app in one command with azd up.', completed: false },
+          { title: 'Set up CI/CD', description: 'Configure GitHub Actions with OIDC to auto-deploy on push with azd pipeline config.', completed: false },
         ],
       },
     },
@@ -426,14 +427,15 @@ async function main(): Promise<void> {
 
   if (alice) {
     await db.insert(schema.items).values([
-      { title: 'Learn Azure', description: 'Explore Azure Static Web Apps and Functions', completed: false, userId: alice.id },
-      { title: 'Build API', description: 'Create CRUD endpoints with Azure Functions', completed: true, userId: alice.id },
+      { title: 'Create your app', description: 'Choose your frontend framework, ORM, and auth preferences to generate your Azure project.', completed: false, userId: alice.id },
+      { title: 'Develop locally', description: 'Run your full stack locally with Docker PostgreSQL, SWA CLI, and hot reload across frontend and API.', completed: false, userId: alice.id },
     ]).onConflictDoNothing();
   }
 
   if (bob) {
     await db.insert(schema.items).values([
-      { title: 'Set up CI/CD', description: 'Configure GitHub Actions for deployment', completed: false, userId: bob.id },
+      { title: 'Deploy to Azure', description: 'Provision infrastructure and deploy your app in one command with azd up.', completed: false, userId: bob.id },
+      { title: 'Set up CI/CD', description: 'Configure GitHub Actions to auto-deploy on push with azd pipeline config.', completed: false, userId: bob.id },
     ]).onConflictDoNothing();
   }
 

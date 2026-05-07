@@ -312,7 +312,8 @@ export default function Home() {
 
       <div className="content">
         <section className="items-section">
-          <h2>Items</h2>
+          <h2>Using This Template</h2>
+          <p className="items-note">Data in this list is loaded dynamically from your API</p>
           {loading && <p className="items-status">Loading items...</p>}
           {error && (
             <p className="items-status items-error">Could not load items: {error}</p>
@@ -506,7 +507,8 @@ export function App() {
 
       <div className="content">
         <section className="items-section">
-          <h2>Items</h2>
+          <h2>Using This Template</h2>
+          <p className="items-note">Data in this list is loaded dynamically from your API</p>
           {loading && <p className="items-status">Loading items...</p>}
           {error && (
             <p className="items-status items-error">Could not load items: {error}</p>
@@ -702,7 +704,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 <div class="content">
   <section class="items-section">
-    <h2>Items</h2>
+    <h2>Using This Template</h2>
+    <p class="items-note">Data in this list is loaded dynamically from your API</p>
     {#if loading}
       <p class="items-status">Loading items...</p>
     {:else if error}

@@ -203,7 +203,8 @@ export {};
 
 <div class="content">
   <section class="items-section">
-    <h2>Items</h2>
+    <h2>Using This Template</h2>
+    <p class="items-note">Data in this list is loaded dynamically from your API</p>
     {#if loading}
       <p class="items-status">Loading items...</p>
     {:else if error}
@@ -384,6 +385,12 @@ export {};
     font-size: 1.25rem;
     font-weight: 700;
     color: #1e293b;
+    margin-bottom: 0.25rem;
+  }
+
+  .items-note {
+    color: #64748b;
+    font-size: 0.8125rem;
     margin-bottom: 1rem;
   }
 

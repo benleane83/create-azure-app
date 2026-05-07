@@ -164,6 +164,12 @@ body {
   font-size: 1.25rem;
   font-weight: 700;
   color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.items-note {
+  color: #64748b;
+  font-size: 0.8125rem;
   margin-bottom: 1rem;
 }
 
