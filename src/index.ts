@@ -146,7 +146,7 @@ async function main(): Promise<void> {
   }
 
   if (config.includeAuth) {
-    features.push(authFeature({ framework: config.framework }));
+    features.push(authFeature(config));
   }
 
   // Compose all features into a unified project

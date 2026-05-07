@@ -63,6 +63,7 @@ export function apiFeature(config: ProjectConfig): Feature {
                 forceConsistentCasingInFileNames: true,
                 resolveJsonModule: true,
                 sourceMap: true,
+                types: ['node'],
               },
               include: isPrisma
                 ? ['src/**/*.ts']

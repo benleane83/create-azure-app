@@ -1,8 +1,8 @@
 # create-azure-app
 
-Interactive CLI that scaffolds a production-ready, full-stack Azure web app — from a single command to `azd up`.
+An interactive CLI that scaffolds a full-stack Azure web app — from a single command to full integrated Azure environment in minutes not hours.
 
-Think **[create-t3-app](https://create.t3.gg/)**, but for Azure. Pick your frontend framework, ORM, and auth preference, and get a deployable project with infrastructure-as-code, local dev environment, and database migrations baked in.
+Think **[create-next-app](https://nextjs.org/docs/app/api-reference/cli/create-next-app)** or **[create-t3-app](https://create.t3.gg/)**, but for Azure. Pick your frontend frameworks, ORM, and auth preference, and get a deployable project with infrastructure-as-code, local dev environment, and GitHub CI/CD baked in.
 
 ```
 npx create-azure-app my-app
@@ -15,7 +15,7 @@ npx create-azure-app my-app
 
 ## Why?
 
-Getting a full-stack app running on Azure shouldn't require stitching together a dozen tutorials. Vercel + Supabase made this easy for their stack — `create-azure-app` does the same for Azure.
+Getting a full-stack app running on Azure shouldn't require stitching together a dozen tutorials. Vercel + Supabase made this easy — `create-azure-app` does the same for Azure.
 
 ### How it compares
 
@@ -33,7 +33,9 @@ Getting a full-stack app running on Azure shouldn't require stitching together a
 | **Secrets** | Key Vault + Entra ID | Manual | Environment vars |
 | **Framework choice** | Next.js, Vite+React, SvelteKit | Next.js only | Next.js only |
 
-**create-t3-app** gives you a great app skeleton but leaves hosting, databases, and infrastructure to you. **create-next-app** is Next.js-only with no backend story. **create-azure-app** generates the entire stack — app code, API, database schema, infrastructure, and deployment config — ready for `azd up`.
+**create-t3-app** gives you a great app skeleton but leaves hosting, databases, and infrastructure to you. **create-next-app** is Next.js-only with no backend story. 
+
+**create-azure-app** generates the entire stack — app code, API, database schema, infrastructure, and deployment config — ready for `azd up`.
 
 ---
 
@@ -100,7 +102,7 @@ my-app/
 
 > **Note:** SWA CLI and Azure Functions Core Tools are installed as project dev dependencies — no global install needed.
 
-### Create your app
+### Step 1 - Create your app
 
 ```bash
 npx create-azure-app my-app
@@ -113,9 +115,10 @@ You'll be prompted to choose:
 | Frontend framework | Next.js, Vite + React, SvelteKit | Next.js |
 | ORM | Prisma, Drizzle | Prisma |
 | Authentication | Yes (Entra ID) / No | Yes |
+| Tailwind CSS | Yes / No | Yes |
 | Package manager | npm, pnpm, yarn | npm |
 
-### Develop locally
+### Step 2 - Develop locally
 
 ```bash
 cd my-app
@@ -128,7 +131,7 @@ The SWA CLI proxies everything through a single port:
 - **API** → Azure Functions (http://localhost:7071)
 - **Auth** → SWA auth emulator
 
-### Deploy to Azure
+### Step 3 - Deploy to Azure
 
 ```bash
 azd auth login
@@ -142,7 +145,7 @@ Your app is live with:
 - Key Vault storing `DATABASE_URL` (referenced by SWA at runtime)
 - Application Insights collecting telemetry
 
-### Set up CI/CD
+### Step 4 - Set up CI/CD
 
 ```bash
 # Push your code to GitHub

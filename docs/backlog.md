@@ -1,6 +1,5 @@
 # Feature and bug backlog for create-azure-app
 
-- Add Tailwind + ShadCN as optional frontend frameworks
 - Migrate to OpenTelemetry native logging
 - Add Redis for optional caching
 - Add Blob Storage for files and assets

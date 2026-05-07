@@ -353,6 +353,7 @@ for (const rel of removePaths) {
     },
     devDependencies: {
       prisma: '^6.2.0',
+      tsx: '^4.19.0',
     },
     scripts: {
       'db:generate': 'prisma generate --schema=db/schema.prisma',
@@ -631,6 +632,7 @@ app.http('deleteItem', {
     devDependencies: {
       'drizzle-kit': '^0.30.0',
       '@types/pg': '^8.11.0',
+      tsx: '^4.19.0',
     },
     scripts: {
       'db:generate': 'drizzle-kit generate',
