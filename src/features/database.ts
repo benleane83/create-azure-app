@@ -22,7 +22,8 @@ function prismaFeature(projectName: string): Feature {
 // Docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows", "debian-openssl-3.0.x", "debian-openssl-1.1.x"]
 }
 
 datasource db {
@@ -108,9 +109,16 @@ main()
         path: 'src/api/src/lib/db.ts',
         content: `import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+let _prisma: PrismaClient | null = null;
 
-export default prisma;
+export function getPrisma(): PrismaClient {
+  if (!_prisma) {
+    _prisma = new PrismaClient();
+  }
+  return _prisma;
+}
+
+export default { get client() { return getPrisma(); } };
 `,
       },
       {
@@ -121,7 +129,7 @@ export default prisma;
   HttpResponseInit,
   InvocationContext,
 } from '@azure/functions';
-import prisma from '../lib/db.js';
+import { getPrisma } from '../lib/db.js';
 
 // GET /api/items
 app.http('listItems', {
@@ -132,6 +140,7 @@ app.http('listItems', {
     request: HttpRequest,
     context: InvocationContext
   ): Promise<HttpResponseInit> => {
+    const prisma = getPrisma();
     const items = await prisma.item.findMany({ orderBy: { createdAt: 'desc' } });
     return { jsonBody: items };
   },
@@ -151,6 +160,7 @@ app.http('getItem', {
       return { status: 400, jsonBody: { error: 'Invalid item ID' } };
     }
 
+    const prisma = getPrisma();
     const item = await prisma.item.findUnique({ where: { id } });
     if (!item) {
       return { status: 404, jsonBody: { error: 'Item not found' } };
@@ -182,6 +192,7 @@ app.http('createItem', {
       return { status: 400, jsonBody: { error: 'userId is required' } };
     }
 
+    const prisma = getPrisma();
     const item = await prisma.item.create({
       data: {
         title: body.title,
@@ -208,6 +219,7 @@ app.http('updateItem', {
       return { status: 400, jsonBody: { error: 'Invalid item ID' } };
     }
 
+    const prisma = getPrisma();
     const existing = await prisma.item.findUnique({ where: { id } });
     if (!existing) {
       return { status: 404, jsonBody: { error: 'Item not found' } };
@@ -246,6 +258,7 @@ app.http('deleteItem', {
       return { status: 400, jsonBody: { error: 'Invalid item ID' } };
     }
 
+    const prisma = getPrisma();
     const existing = await prisma.item.findUnique({ where: { id } });
     if (!existing) {
       return { status: 404, jsonBody: { error: 'Item not found' } };
@@ -255,6 +268,83 @@ app.http('deleteItem', {
     return { status: 204 };
   },
 });
+`,
+      },
+      {
+        path: 'scripts/sync-prisma-client.mjs',
+        content: `#!/usr/bin/env node
+/**
+ * sync-prisma-client.mjs
+ *
+ * Copies the generated Prisma client from the repo root into the
+ * Azure Functions sub-project so \`func start\` can resolve it.
+ *
+ * Run from src/api/:  node ../../scripts/sync-prisma-client.mjs
+ */
+import { cpSync, existsSync, mkdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(__dirname, '..');
+
+const pairs = [
+  ['node_modules/@prisma/client', 'src/api/node_modules/@prisma/client'],
+  ['node_modules/.prisma',        'src/api/node_modules/.prisma'],
+];
+
+for (const [src, dest] of pairs) {
+  const srcPath  = resolve(repoRoot, src);
+  const destPath = resolve(repoRoot, dest);
+
+  if (!existsSync(srcPath)) {
+    console.warn(\`⚠  source not found, skipping: \${srcPath}\`);
+    continue;
+  }
+
+  mkdirSync(dirname(destPath), { recursive: true });
+  cpSync(srcPath, destPath, { recursive: true, force: true });
+  console.log(\`✔  \${src} → \${dest}\`);
+}
+`,
+      },
+      {
+        path: 'scripts/slim-swa-api-package.mjs',
+        content: `#!/usr/bin/env node
+/**
+ * slim-swa-api-package.mjs
+ *
+ * Trims non-runtime Prisma artefacts from src/api so SWA deploy
+ * doesn't exceed the 100 MB limit.
+ *
+ * Run from repo root:  node scripts/slim-swa-api-package.mjs
+ */
+import { rmSync, existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(__dirname, '..');
+const apiDir   = resolve(repoRoot, 'src/api');
+
+const removePaths = [
+  'node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node',
+  'node_modules/.prisma/client/libquery_engine-windows.dll.node',
+  'node_modules/@prisma/engines',
+  'node_modules/prisma',
+  'node_modules/@prisma/client/generator-build',
+  // Dev dependencies \u2013 not needed at runtime
+  'node_modules/typescript',
+  'node_modules/@types',
+];
+
+for (const rel of removePaths) {
+  const full = resolve(apiDir, rel);
+  if (existsSync(full)) {
+    rmSync(full, { recursive: true, force: true });
+    console.log(\`✔  removed \${rel}\`);
+  }
+}
 `,
       },
     ],
@@ -268,6 +358,8 @@ app.http('deleteItem', {
       'db:generate': 'prisma generate --schema=db/schema.prisma',
       'db:migrate': 'prisma migrate dev --schema=db/schema.prisma',
       'db:seed': 'tsx db/seed.ts',
+      'db:seed:azure': 'pwsh scripts/seed.ps1',
+      'db:seed:azure:posix': 'bash scripts/seed.sh',
       'db:push': 'prisma db push --schema=db/schema.prisma',
     },
   };

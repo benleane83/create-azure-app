@@ -16,6 +16,8 @@ interface SwaCliConfig {
       apiLocation: string;
       outputLocation: string;
       appDevserverUrl: string;
+      apiLanguage: string;
+      apiVersion: string;
       run?: string;
       host: string;
       port: number;
@@ -29,6 +31,8 @@ function buildSwaConfig(framework: Framework, packageManager: PackageManager): S
     apiLocation: 'src/api',
     host: 'localhost',
     port: 4280,
+    apiLanguage: 'node',
+    apiVersion: '20',
   };
 
   switch (framework) {

@@ -8,3 +8,6 @@
 .squad-workstream
 node_modules/
 dist/
+
+# Generated app output folders
+/coffee*/

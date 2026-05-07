@@ -88,6 +88,23 @@ export default defineConfig({
 `,
       },
       {
+        path: 'src/web/src/app.d.ts',
+        content: `// See https://svelte.dev/docs/kit/types#app.d.ts
+// for information about these interfaces
+declare global {
+  namespace App {
+    // interface Error {}
+    // interface Locals {}
+    // interface PageData {}
+    // interface PageState {}
+    // interface Platform {}
+  }
+}
+
+export {};
+`,
+      },
+      {
         path: 'src/web/src/app.html',
         content: `<!doctype html>
 <html lang="en">
@@ -113,12 +130,64 @@ export default defineConfig({
       },
       {
         path: 'src/web/src/routes/+page.svelte',
-        content: `<main>
+        content: `<script lang="ts">
+  import { onMount } from 'svelte';
+
+  interface Item {
+    id: number;
+    title: string;
+    description: string | null;
+    completed: boolean;
+  }
+
+  let items = $state<Item[]>([]);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
+
+  onMount(async () => {
+    try {
+      const res = await fetch('/api/items');
+      if (!res.ok) throw new Error(\`HTTP \${res.status}\`);
+      items = await res.json();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unknown error';
+    } finally {
+      loading = false;
+    }
+  });
+</script>
+
+<main>
   <h1>${projectName}</h1>
   <p>Your Azure full-stack app is ready.</p>
   <nav>
     <a href="/api/health">API Health Check</a>
   </nav>
+
+  <section class="items-section">
+    <h2>Items</h2>
+    {#if loading}
+      <p class="items-status">Loading items...</p>
+    {:else if error}
+      <p class="items-status items-error">Could not load items: {error}</p>
+    {:else if items.length === 0}
+      <p class="items-status">No items yet. Run <code>npm run db:seed</code> to add sample data.</p>
+    {:else}
+      <ul class="items-grid">
+        {#each items as item (item.id)}
+          <li class="item-card">
+            <span class="badge {item.completed ? 'badge-done' : 'badge-todo'}">
+              {item.completed ? 'Done' : 'Todo'}
+            </span>
+            <h3>{item.title}</h3>
+            {#if item.description}
+              <p>{item.description}</p>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
 </main>
 
 <style>
@@ -163,6 +232,76 @@ export default defineConfig({
   nav {
     display: flex;
     gap: 1rem;
+  }
+
+  .items-section {
+    margin-top: 2.5rem;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 1.5rem;
+  }
+
+  .items-section h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .items-status {
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+
+  .items-error {
+    color: #dc2626;
+  }
+
+  .items-grid {
+    list-style: none;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .item-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+
+  .item-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0.25rem 0;
+  }
+
+  .item-card p {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+  }
+
+  .badge-done {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .badge-todo {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  code {
+    background: #f3f4f6;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
   }
 </style>
 `,

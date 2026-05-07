@@ -5,6 +5,21 @@ import { pmRun, pmInstall } from '../utils.js';
 export function apiFeature(config: ProjectConfig): Feature {
   const { projectName } = config;
 
+  const isPrisma = config.orm === 'prisma';
+
+  const apiScripts: Record<string, string> = {
+    build: 'tsc',
+    watch: 'tsc -w',
+    start: 'func start',
+    prestart: 'tsc',
+  };
+
+  if (isPrisma) {
+    apiScripts['generate:prisma'] = 'prisma generate --schema=../../db/schema.prisma';
+    apiScripts['sync:prisma'] = 'node ../../scripts/sync-prisma-client.mjs';
+    apiScripts['prestart'] = 'npm run generate:prisma && npm run sync:prisma && tsc';
+  }
+
   return {
     name: 'api',
     files: [
@@ -18,12 +33,7 @@ export function apiFeature(config: ProjectConfig): Feature {
               private: true,
               type: 'module',
               main: 'dist/src/functions/*.js',
-              scripts: {
-                build: 'tsc',
-                watch: 'tsc -w',
-                start: 'func start',
-                prestart: 'tsc',
-              },
+              scripts: apiScripts,
               dependencies: {
                 '@azure/functions': '^4.6.0',
               },
@@ -307,6 +317,15 @@ export function getDb(): DbClient {
 export function initDb(dbClient: DbClient): void {
   client = dbClient;
 }
+`,
+      },
+      {
+        path: 'src/api/.funcignore',
+        content: `local.settings.json
+src/
+tsconfig.json
+package-lock.json
+*.map
 `,
       },
     ],

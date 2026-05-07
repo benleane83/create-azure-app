@@ -84,15 +84,13 @@ export function envFeature(config: EnvConfigOptions): Feature {
   return {
     name: 'env',
     files,
-    dependencies: {
-      dotenv: '^16.4.0',
-    },
+    dependencies: {},
     devDependencies: {
-      '@azure/static-web-apps-cli': 'latest',
+      '@azure/static-web-apps-cli': '^2.0.0',
       'azure-functions-core-tools': '^4.0.0',
     },
     scripts: {
-      setup: `docker compose up -d && ${pmRun(config.packageManager, 'install:api')} && ${pmRun(config.packageManager, 'install:web')} && ${pmRun(config.packageManager, 'build:api')} && ${pmRun(config.packageManager, 'db:migrate')} && ${pmRun(config.packageManager, 'db:seed')}`,
+      setup: `${pmInstall(config.packageManager)} && docker compose up -d && ${pmRun(config.packageManager, 'install:api')} && ${pmRun(config.packageManager, 'install:web')} && ${pmRun(config.packageManager, 'build:api')} && ${pmRun(config.packageManager, 'db:migrate')} && ${pmRun(config.packageManager, 'db:seed')}`,
       dev: 'swa start',
     },
   };

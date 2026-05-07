@@ -3,8 +3,13 @@ import type { Feature } from '../composer.js';
 export function authFeature(config: {
   framework: 'nextjs' | 'vite-react' | 'sveltekit';
 }): Feature {
+  const configContent = swaConfigContent();
+  const staticDir =
+    config.framework === 'sveltekit' ? 'src/web/static' : 'src/web/public';
+
   const files = [
-    swaConfig(),
+    { path: 'staticwebapp.config.json', content: configContent },
+    { path: `${staticDir}/staticwebapp.config.json`, content: configContent },
     apiAuthHelper(),
     ...frameworkAuthFiles(config.framework),
   ];
@@ -20,43 +25,44 @@ export function authFeature(config: {
 
 // ─── SWA Configuration ──────────────────────────────────────────────────────
 
-function swaConfig() {
-  return {
-    path: 'staticwebapp.config.json',
-    content: JSON.stringify(
-      {
-        routes: [
-          {
-            route: '/login',
-            redirect: '/.auth/login/aad',
-          },
-          {
-            route: '/logout',
-            redirect: '/.auth/logout',
-          },
-          {
-            route: '/api/*',
-            allowedRoles: ['authenticated'],
-          },
-        ],
-        responseOverrides: {
-          '401': {
-            redirect: '/.auth/login/aad',
-            statusCode: 302,
-          },
+function swaConfigContent(): string {
+  return JSON.stringify(
+    {
+      routes: [
+        {
+          route: '/login',
+          redirect: '/.auth/login/aad',
         },
-        navigationFallback: {
-          rewrite: '/index.html',
-          exclude: ['/images/*.{png,jpg,gif}', '/css/*', '/api/*'],
+        {
+          route: '/logout',
+          redirect: '/.auth/logout',
         },
-        platform: {
-          apiRuntime: 'node:20',
+        {
+          route: '/api/*',
+          allowedRoles: ['authenticated'],
+        },
+        {
+          route: '/*',
+          allowedRoles: ['authenticated'],
+        },
+      ],
+      responseOverrides: {
+        '401': {
+          redirect: '/.auth/login/aad',
+          statusCode: 302,
         },
       },
-      null,
-      2
-    ) + '\n',
-  };
+      navigationFallback: {
+        rewrite: '/index.html',
+        exclude: ['/images/*.{png,jpg,gif}', '/css/*', '/api/*'],
+      },
+      platform: {
+        apiRuntime: 'node:20',
+      },
+    },
+    null,
+    2
+  ) + '\n';
 }
 
 // ─── API Auth Helper ─────────────────────────────────────────────────────────
@@ -220,42 +226,6 @@ export function useAuth(): AuthState {
     login: () => { window.location.href = '/.auth/login/aad'; },
     logout: () => { window.location.href = '/.auth/logout'; },
   };
-}
-`,
-    },
-    {
-      path: 'src/web/app/api/auth/route.ts',
-      content: `import { NextResponse } from 'next/server';
-
-/**
- * Server-side API route to retrieve auth state from SWA headers.
- * Useful for SSR pages that need the current user.
- *
- * In production, SWA injects \`x-ms-client-principal\` on every request.
- * This route simply forwards the decoded principal as JSON.
- */
-export async function GET(request: Request): Promise<NextResponse> {
-  const header = request.headers.get('x-ms-client-principal');
-
-  if (!header) {
-    return NextResponse.json({ user: null });
-  }
-
-  try {
-    const decoded = Buffer.from(header, 'base64').toString('utf-8');
-    const principal = JSON.parse(decoded);
-
-    return NextResponse.json({
-      user: {
-        identityProvider: principal.identityProvider,
-        userId: principal.userId,
-        userDetails: principal.userDetails,
-        userRoles: principal.userRoles ?? [],
-      },
-    });
-  } catch {
-    return NextResponse.json({ user: null });
-  }
 }
 `,
     },

@@ -10,19 +10,27 @@ interface InfraConfigOptions {
 }
 
 export function infraFeature(config: InfraConfigOptions): Feature {
+  const baseConfig = baseSwaAppConfig();
+  const staticDir =
+    config.framework === 'sveltekit' ? 'src/web/static' : 'src/web/public';
+
   return {
     name: 'infra',
     files: [
       { path: 'infra/modules/swa.bicep', content: swaBicep() },
       { path: 'infra/modules/postgres.bicep', content: postgresBicep() },
       { path: 'infra/modules/monitoring.bicep', content: monitoringBicep() },
+      { path: 'infra/modules/swa-appsettings.bicep', content: swaAppSettingsBicep() },
       { path: 'infra/modules/keyvault.bicep', content: keyvaultBicep() },
       { path: 'infra/main.bicep', content: mainBicep() },
       { path: 'infra/main.parameters.json', content: mainParametersJson() },
       { path: 'azure.yaml', content: azureYaml(config) },
       { path: 'scripts/migrate.sh', content: migrateScript(config) },
       { path: 'scripts/migrate.ps1', content: migratePowershellScript(config) },
-      { path: 'staticwebapp.config.json', content: baseSwaAppConfig() },
+      { path: 'scripts/seed.sh', content: seedScript(config) },
+      { path: 'scripts/seed.ps1', content: seedPowershellScript(config) },
+      { path: 'staticwebapp.config.json', content: baseConfig },
+      { path: `${staticDir}/staticwebapp.config.json`, content: baseConfig },
     ],
   };
 }
@@ -194,6 +202,7 @@ resource entraAdmin 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@20
 }
 
 output fqdn string = server.properties.fullyQualifiedDomainName
+output name string = server.name
 output databaseName string = databaseName
 output id string = server.id
 `;
@@ -233,8 +242,32 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 output connectionString string = appInsights.properties.ConnectionString
-output instrumentationKey string = appInsights.properties.InstrumentationKey
 output workspaceId string = logAnalytics.id
+`;
+}
+
+function swaAppSettingsBicep(): string {
+  return `@description('Name of the existing Static Web App')
+param swaName string
+
+@description('Application Insights connection string')
+param appInsightsConnectionString string
+
+@description('Key Vault secret URI for the DATABASE_URL')
+param databaseUrlSecretUri string
+
+resource swa 'Microsoft.Web/staticSites@2023-12-01' existing = {
+  name: swaName
+}
+
+resource appSettings 'Microsoft.Web/staticSites/config@2023-12-01' = {
+  parent: swa
+  name: 'appsettings'
+  properties: {
+    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString
+    DATABASE_URL: '@Microsoft.KeyVault(SecretUri=\${databaseUrlSecretUri})'
+  }
+}
 `;
 }
 
@@ -250,6 +283,10 @@ param tags object = {}
 
 @description('Principal ID to grant Key Vault Secrets User role')
 param principalId string
+
+@secure()
+@description('PostgreSQL connection string to store as a secret')
+param databaseUrl string
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: name
@@ -267,6 +304,15 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
+// Store DATABASE_URL as a Key Vault secret
+resource databaseUrlSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'DATABASE-URL'
+  properties: {
+    value: databaseUrl
+  }
+}
+
 // Grant the SWA managed identity "Key Vault Secrets User" role
 resource keyVaultSecretUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: keyVault
@@ -281,6 +327,7 @@ resource keyVaultSecretUserRole 'Microsoft.Authorization/roleAssignments@2022-04
 output name string = keyVault.name
 output uri string = keyVault.properties.vaultUri
 output id string = keyVault.id
+output databaseUrlSecretUri string = databaseUrlSecret.properties.secretUri
 `;
 }
 
@@ -355,7 +402,7 @@ module monitoring 'modules/monitoring.bicep' = {
   }
 }
 
-// Key Vault (with SWA managed identity access)
+// Key Vault — stores DATABASE_URL secret, grants SWA managed identity access
 module keyvault 'modules/keyvault.bicep' = {
   scope: rg
   name: 'keyvault'
@@ -364,6 +411,18 @@ module keyvault 'modules/keyvault.bicep' = {
     location: location
     tags: tags
     principalId: swa.outputs.principalId
+    databaseUrl: 'postgresql://\${dbAdminLogin}:\${dbAdminPassword}@\${postgres.outputs.fqdn}:5432/\${postgres.outputs.databaseName}?sslmode=require'
+  }
+}
+
+// Inject app settings into SWA — DATABASE_URL via Key Vault reference
+module swaAppSettings 'modules/swa-appsettings.bicep' = {
+  scope: rg
+  name: 'swa-appsettings'
+  params: {
+    swaName: swa.outputs.name
+    appInsightsConnectionString: monitoring.outputs.connectionString
+    databaseUrlSecretUri: keyvault.outputs.databaseUrlSecretUri
   }
 }
 
@@ -372,6 +431,7 @@ output AZURE_RESOURCE_GROUP string = rg.name
 output AZURE_SWA_NAME string = swa.outputs.name
 output AZURE_SWA_HOSTNAME string = swa.outputs.defaultHostname
 output AZURE_POSTGRESQL_HOST string = postgres.outputs.fqdn
+output AZURE_POSTGRESQL_SERVER_NAME string = postgres.outputs.name
 output AZURE_POSTGRESQL_DATABASE string = postgres.outputs.databaseName
 output AZURE_POSTGRESQL_ADMIN_LOGIN string = dbAdminLogin
 output AZURE_APPINSIGHTS_CONNECTION_STRING string = monitoring.outputs.connectionString
@@ -408,6 +468,25 @@ function azureYaml(config: InfraConfigOptions): string {
   const installCmd = config.packageManager === 'yarn' ? 'yarn install' : `${config.packageManager} install`;
   const buildCmd = config.packageManager === 'yarn' ? 'yarn build' : `${config.packageManager} run build`;
 
+  const prismaPreWin = config.orm === 'prisma' ? `
+        npm run db:generate
+` : '';
+  const prismaPostWin = config.orm === 'prisma' ? `
+        cd ../..
+        node scripts/sync-prisma-client.mjs
+        node scripts/slim-swa-api-package.mjs
+        Get-ChildItem "src/api/node_modules/.prisma/client" -Filter *.node | Where-Object { $_.Name -notlike '*debian*' } | Remove-Item -Force -ErrorAction SilentlyContinue
+` : '';
+  const prismaPrePosix = config.orm === 'prisma' ? `
+        npm run db:generate
+` : '';
+  const prismaPostPosix = config.orm === 'prisma' ? `
+        cd ../..
+        node scripts/sync-prisma-client.mjs
+        node scripts/slim-swa-api-package.mjs
+        find src/api/node_modules/.prisma/client -name "*.node" ! -name "*debian*" -delete 2>/dev/null || true
+` : '';
+
   return `name: ${config.projectName}
 metadata:
   template: create-azure-app
@@ -416,22 +495,20 @@ services:
     project: src/web
     dist: ${distDir}
     host: staticwebapp
-  api:
-    project: src/api
-    host: function
-    language: ts
+    config:
+      apiDir: src/api
 hooks:
   prepackage:
     windows:
       shell: pwsh
-      run: |
+      run: |${prismaPreWin}
         cd src/web && ${installCmd} && ${buildCmd}
-        cd ../api && ${installCmd} && ${buildCmd}
+        cd ../api && ${installCmd} && ${buildCmd}${prismaPostWin}
     posix:
       shell: sh
-      run: |
+      run: |${prismaPrePosix}
         cd src/web && ${installCmd} && ${buildCmd}
-        cd ../api && ${installCmd} && ${buildCmd}
+        cd ../api && ${installCmd} && ${buildCmd}${prismaPostPosix}
   postprovision:
     windows:
       shell: pwsh
@@ -459,8 +536,14 @@ cd "$(dirname "$0")/.."
 
 echo "Running database migration..."
 
-# Build DATABASE_URL from azd-provisioned resources
-export DATABASE_URL="postgresql://\${AZURE_POSTGRESQL_ADMIN_LOGIN:-pgadmin}:\${dbAdminPassword}@\${AZURE_POSTGRESQL_HOST}:5432/\${AZURE_POSTGRESQL_DATABASE}?sslmode=require"
+# Prefer DATABASE_URL if already set, otherwise retrieve from Key Vault.
+if [ -z "$DATABASE_URL" ]; then
+  echo "Retrieving DATABASE_URL from Key Vault..."
+  export DATABASE_URL=$(az keyvault secret show \\
+    --vault-name "\\$AZURE_KEY_VAULT_NAME" \\
+    --name "DATABASE-URL" \\
+    --query value -o tsv)
+fi
 
 ${migrateCmd}
 
@@ -485,13 +568,111 @@ Set-Location ..
 
 Write-Host "Running database migration..."
 
-# Build DATABASE_URL from azd-provisioned resources
-$adminLogin = if ($env:AZURE_POSTGRESQL_ADMIN_LOGIN) { $env:AZURE_POSTGRESQL_ADMIN_LOGIN } else { "pgadmin" }
-$env:DATABASE_URL = "postgresql://\${adminLogin}:\${env:dbAdminPassword}@\${env:AZURE_POSTGRESQL_HOST}:5432/\${env:AZURE_POSTGRESQL_DATABASE}?sslmode=require"
+# Prefer DATABASE_URL if already set, otherwise retrieve from Key Vault.
+if (-not $env:DATABASE_URL) {
+  Write-Host "Retrieving DATABASE_URL from Key Vault..."
+  $env:DATABASE_URL = az keyvault secret show \`
+    --vault-name $env:AZURE_KEY_VAULT_NAME \`
+    --name "DATABASE-URL" \`
+    --query value -o tsv
+}
 
 ${migrateCmd}
 
 Write-Host "Migration complete."
+Pop-Location
+`;
+}
+
+// ---------------------------------------------------------------------------
+// Seed script (POSIX)
+// ---------------------------------------------------------------------------
+
+function seedScript(_config: InfraConfigOptions): string {
+  return `#!/bin/bash
+set -e
+
+cd "$(dirname "$0")/.."
+
+echo "🌱 Seeding Azure database..."
+
+# Prefer DATABASE_URL if already set, otherwise retrieve from Key Vault.
+if [ -z "$DATABASE_URL" ]; then
+  echo "Retrieving DATABASE_URL from Key Vault..."
+  export DATABASE_URL=$(az keyvault secret show \\
+    --vault-name "\\$AZURE_KEY_VAULT_NAME" \\
+    --name "DATABASE-URL" \\
+    --query value -o tsv)
+fi
+
+# Open temporary firewall rule for local machine
+MY_IP=$(curl -s https://api.ipify.org)
+echo "Opening firewall for \$MY_IP..."
+az postgres flexible-server firewall-rule create \\
+  --resource-group "\$AZURE_RESOURCE_GROUP" \\
+  --name "\$AZURE_POSTGRESQL_SERVER_NAME" \\
+  --rule-name "seed-temp-\$\$" \\
+  --start-ip-address "\$MY_IP" \\
+  --end-ip-address "\$MY_IP" 2>/dev/null || true
+
+npx tsx db/seed.ts
+
+# Close temporary firewall rule
+echo "Closing firewall rule..."
+az postgres flexible-server firewall-rule delete \\
+  --resource-group "\$AZURE_RESOURCE_GROUP" \\
+  --name "\$AZURE_POSTGRESQL_SERVER_NAME" \\
+  --rule-name "seed-temp-\$\$" \\
+  --yes 2>/dev/null || true
+
+echo "✅ Seed complete."
+`;
+}
+
+// ---------------------------------------------------------------------------
+// Seed script (PowerShell — Windows)
+// ---------------------------------------------------------------------------
+
+function seedPowershellScript(_config: InfraConfigOptions): string {
+  return `$ErrorActionPreference = "Stop"
+
+Push-Location (Split-Path -Parent $MyInvocation.MyCommand.Path)
+Set-Location ..
+
+Write-Host "🌱 Seeding Azure database..."
+
+# Prefer DATABASE_URL if already set, otherwise retrieve from Key Vault.
+if (-not $env:DATABASE_URL) {
+  Write-Host "Retrieving DATABASE_URL from Key Vault..."
+  $env:DATABASE_URL = az keyvault secret show \`
+    --vault-name $env:AZURE_KEY_VAULT_NAME \`
+    --name "DATABASE-URL" \`
+    --query value -o tsv
+}
+
+# Open temporary firewall rule for local machine
+$myIp = (Invoke-RestMethod -Uri "https://api.ipify.org")
+$ruleName = "seed-temp-$(Get-Random)"
+Write-Host "Opening firewall for $myIp..."
+az postgres flexible-server firewall-rule create \`
+  --resource-group $env:AZURE_RESOURCE_GROUP \`
+  --name $env:AZURE_POSTGRESQL_SERVER_NAME \`
+  --rule-name $ruleName \`
+  --start-ip-address $myIp \`
+  --end-ip-address $myIp 2>$null
+
+try {
+  npx tsx db/seed.ts
+} finally {
+  Write-Host "Closing firewall rule..."
+  az postgres flexible-server firewall-rule delete \`
+    --resource-group $env:AZURE_RESOURCE_GROUP \`
+    --name $env:AZURE_POSTGRESQL_SERVER_NAME \`
+    --rule-name $ruleName \`
+    --yes 2>$null
+}
+
+Write-Host "✅ Seed complete."
 Pop-Location
 `;
 }

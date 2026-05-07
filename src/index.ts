@@ -17,6 +17,7 @@ import { dockerFeature } from './features/docker.js';
 import { swaConfigFeature } from './features/swa-config.js';
 import { envFeature } from './features/env.js';
 import { infraFeature } from './features/infra.js';
+import { cicdFeature } from './features/cicd.js';
 
 type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
 type ORM = 'prisma' | 'drizzle';
@@ -127,6 +128,7 @@ async function main(): Promise<void> {
     swaConfigFeature({ framework: config.framework, packageManager: config.packageManager }),
     envFeature({ projectName: config.projectName, orm: config.orm, includeAuth: config.includeAuth, packageManager: config.packageManager }),
     infraFeature(config),
+    cicdFeature({ projectName: config.projectName, framework: config.framework, packageManager: config.packageManager }),
   ];
 
   if (config.includeAuth) {
@@ -135,7 +137,7 @@ async function main(): Promise<void> {
 
   // Compose all features into a unified project
   const composed = compose(features);
-  const rootPkgContent = buildRootPackageJson(config.projectName, composed);
+  const rootPkgContent = buildRootPackageJson(config.projectName, composed, config.packageManager);
   const allFiles = [
     ...composed.files,
     { path: 'package.json', content: rootPkgContent },

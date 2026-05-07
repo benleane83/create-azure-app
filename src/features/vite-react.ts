@@ -2,11 +2,11 @@ import type { Feature } from '../composer.js';
 import type { ProjectConfig } from '../index.js';
 import { pmRun, pmInstall } from '../utils.js';
 
-export function nextjsFeature(config: ProjectConfig): Feature {
+export function viteReactFeature(config: ProjectConfig): Feature {
   const { projectName } = config;
 
   return {
-    name: 'nextjs',
+    name: 'vite-react',
     files: [
       {
         path: 'src/web/package.json',
@@ -16,22 +16,22 @@ export function nextjsFeature(config: ProjectConfig): Feature {
               name: `${projectName}-web`,
               version: '0.1.0',
               private: true,
+              type: 'module',
               scripts: {
-                dev: 'next dev',
-                build: 'next build',
-                start: 'next start',
-                lint: 'next lint',
+                dev: 'vite',
+                build: 'tsc -b && vite build',
+                preview: 'vite preview',
               },
               dependencies: {
-                next: '^15.3.0',
                 react: '^19.1.0',
                 'react-dom': '^19.1.0',
               },
               devDependencies: {
-                '@types/node': '^22.0.0',
                 '@types/react': '^19.1.0',
                 '@types/react-dom': '^19.1.0',
+                '@vitejs/plugin-react': '^4.4.0',
                 typescript: '^5.8.0',
+                vite: '^6.3.0',
               },
             },
             null,
@@ -44,71 +44,74 @@ export function nextjsFeature(config: ProjectConfig): Feature {
           JSON.stringify(
             {
               compilerOptions: {
-                target: 'ES2017',
-                lib: ['dom', 'dom.iterable', 'esnext'],
-                allowJs: true,
+                target: 'ES2020',
+                useDefineForClassFields: true,
+                lib: ['ES2020', 'DOM', 'DOM.Iterable'],
+                module: 'ESNext',
                 skipLibCheck: true,
-                strict: true,
-                noEmit: true,
-                esModuleInterop: true,
-                module: 'esnext',
                 moduleResolution: 'bundler',
-                resolveJsonModule: true,
+                allowImportingTsExtensions: true,
                 isolatedModules: true,
-                jsx: 'preserve',
-                incremental: true,
-                plugins: [{ name: 'next' }],
-                paths: { '@/*': ['./*'] },
+                moduleDetection: 'force',
+                noEmit: true,
+                jsx: 'react-jsx',
+                strict: true,
+                noUnusedLocals: true,
+                noUnusedParameters: true,
+                noFallthroughCasesInSwitch: true,
               },
-              include: [
-                'next-env.d.ts',
-                '**/*.ts',
-                '**/*.tsx',
-                '.next/types/**/*.ts',
-              ],
-              exclude: ['node_modules'],
+              include: ['src'],
             },
             null,
             2
           ) + '\n',
       },
       {
-        path: 'src/web/next.config.js',
-        content: `/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: 'export',
-};
+        path: 'src/web/vite.config.ts',
+        content: `import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-module.exports = nextConfig;
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    outDir: 'dist',
+  },
+});
 `,
       },
       {
-        path: 'src/web/app/layout.tsx',
-        content: `import type { Metadata } from 'next';
-import './globals.css';
-
-export const metadata: Metadata = {
-  title: '${projectName}',
-  description: 'Built with create-azure-app',
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  );
-}
+        path: 'src/web/index.html',
+        content: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${projectName}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
 `,
       },
       {
-        path: 'src/web/app/page.tsx',
-        content: `'use client';
-import { useEffect, useState } from 'react';
+        path: 'src/web/src/main.tsx',
+        content: `import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { App } from './App';
+import './App.css';
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
+`,
+      },
+      {
+        path: 'src/web/src/App.tsx',
+        content: `import { useEffect, useState } from 'react';
 
 interface Item {
   id: number;
@@ -117,7 +120,7 @@ interface Item {
   completed: boolean;
 }
 
-export default function Home() {
+export function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +178,7 @@ export default function Home() {
 `,
       },
       {
-        path: 'src/web/app/globals.css',
+        path: 'src/web/src/App.css',
         content: `*,
 *::before,
 *::after {

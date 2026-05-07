@@ -15,6 +15,7 @@ build/
 .env
 .env.local
 .env.*.local
+.env.docker
 
 # IDE
 .vscode/
@@ -35,7 +36,8 @@ Thumbs.db
  */
 export function buildRootPackageJson(
   projectName: string,
-  composed: ComposedProject
+  composed: ComposedProject,
+  packageManager: PackageManager
 ): string {
   const pkg = {
     name: projectName,
@@ -43,9 +45,7 @@ export function buildRootPackageJson(
     private: true,
     type: 'module' as const,
     scripts: {
-      dev: 'echo "TODO: wire up swa-cli dev"',
-      build: 'echo "TODO: build all workspaces"',
-      setup: 'docker compose up -d && echo "TODO: run migrations + seed"',
+      build: `${pmRun(packageManager, 'build:web')} && ${pmRun(packageManager, 'build:api')}`,
       ...composed.scripts,
     },
     dependencies: sortObject(composed.dependencies),
@@ -99,6 +99,10 @@ azd up
 ## Project Structure
 
 \`\`\`
+├── .github/
+│   └── workflows/
+│       ├── deploy.yml      # Build + deploy (prod & preview)
+│       └── provision.yml   # Azure infrastructure provisioning
 ├── src/
 │   ├── web/          # Frontend application
 │   └── api/          # Azure Functions API
@@ -109,6 +113,41 @@ azd up
 ├── azure.yaml        # AZD manifest
 └── docker-compose.yml
 \`\`\`
+
+## CI/CD
+
+This project includes GitHub Actions workflows that mirror the Vercel deployment model:
+
+- **Push to \`main\`** → deploys to your **production** Static Web App
+- **Pull request** → deploys to a **preview environment** with a unique URL
+- **PR closed** → automatically tears down the preview environment
+
+### Setup
+
+1. **Provision infrastructure** (one-time):
+   \`\`\`bash
+   azd up
+   \`\`\`
+
+2. **Get the SWA deployment token**:
+   \`\`\`bash
+   az staticwebapp secrets list --name <your-swa-name> --query "properties.apiKey" -o tsv
+   \`\`\`
+
+3. **Add repository secrets** in GitHub → Settings → Secrets and variables → Actions:
+   | Secret | Description |
+   |--------|-------------|
+   | \`AZURE_STATIC_WEB_APPS_API_TOKEN\` | SWA deployment token from step 2 |
+   | \`AZURE_CLIENT_ID\` | App registration client ID (for OIDC) |
+   | \`AZURE_TENANT_ID\` | Entra ID tenant ID |
+   | \`AZURE_SUBSCRIPTION_ID\` | Azure subscription ID |
+   | \`AZURE_LOCATION\` | Azure region (e.g. \`eastus2\`) |
+
+4. **Configure OIDC federated credentials** on your Entra app registration:
+   - Subject: \`repo:<owner>/<repo>:environment:production\`
+   - Issuer: \`https://token.actions.githubusercontent.com\`
+
+Once configured, every push to \`main\` deploys automatically, and every PR gets its own preview URL.
 `,
       },
       {

@@ -15,9 +15,9 @@ services:
     restart: unless-stopped
     ports:
       - "5432:5432"
+    env_file:
+      - .env.docker
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ${config.projectName}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -34,6 +34,10 @@ services:
       {
         path: 'docker-compose.yml',
         content: composeContent,
+      },
+      {
+        path: '.env.docker',
+        content: `POSTGRES_USER=postgres\nPOSTGRES_PASSWORD=postgres\n`,
       },
     ],
   };
