@@ -79,6 +79,8 @@ my-app/
 └── .env.example
 ```
 
+![Generated app screenshot](generated-app-screenshot.png)
+
 ### Azure services used
 
 | Service | Purpose | Dev-tier cost |
