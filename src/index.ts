@@ -30,6 +30,7 @@ export interface ProjectConfig {
   framework: Framework;
   orm: ORM;
   includeAuth: boolean;
+  includeDatabase: boolean;
   includeTailwind: boolean;
   packageManager: PackageManager;
 }
@@ -85,15 +86,23 @@ Run without options for the interactive setup wizard.`);
           initialValue: 'nextjs' as const,
         }),
 
-      orm: () =>
-        p.select({
-          message: 'Which ORM?',
-          options: [
-            { value: 'prisma' as const, label: 'Prisma' },
-            { value: 'drizzle' as const, label: 'Drizzle' },
-          ],
-          initialValue: 'prisma' as const,
+      includeDatabase: () =>
+        p.confirm({
+          message: 'Include PostgreSQL database?',
+          initialValue: true,
         }),
+
+      orm: ({ results }) =>
+        results.includeDatabase
+          ? p.select({
+              message: 'Which ORM?',
+              options: [
+                { value: 'prisma' as const, label: 'Prisma' },
+                { value: 'drizzle' as const, label: 'Drizzle' },
+              ],
+              initialValue: 'prisma' as const,
+            })
+          : Promise.resolve('prisma' as const),
 
       includeAuth: () =>
         p.confirm({
@@ -131,6 +140,7 @@ Run without options for the interactive setup wizard.`);
     framework: answers.framework as Framework,
     orm: answers.orm as ORM,
     includeAuth: answers.includeAuth as boolean,
+    includeDatabase: answers.includeDatabase as boolean,
     includeTailwind: answers.includeTailwind as boolean,
     packageManager: answers.packageManager as PackageManager,
   };
@@ -139,7 +149,7 @@ Run without options for the interactive setup wizard.`);
     [
       `${pc.bold('Project:')}      ${config.projectName}`,
       `${pc.bold('Framework:')}    ${formatFramework(config.framework)}`,
-      `${pc.bold('ORM:')}          ${formatORM(config.orm)}`,
+      `${pc.bold('Database:')}     ${config.includeDatabase ? formatORM(config.orm) : 'None (mock data)'}`,
       `${pc.bold('Auth:')}         ${config.includeAuth ? 'Yes (Entra ID)' : 'No'}`,
       `${pc.bold('Tailwind:')}     ${config.includeTailwind ? 'Yes (v4)' : 'No'}`,
       `${pc.bold('Pkg Manager:')}  ${config.packageManager}`,
@@ -154,15 +164,17 @@ Run without options for the interactive setup wizard.`);
     sveltekitFeature(config);
 
   const features = [
-    baseFeature(config.projectName, config.packageManager),
+    baseFeature(config.projectName, config.packageManager, config.includeDatabase),
     frameworkFeature,
     apiFeature(config),
-    databaseFeature({ orm: config.orm, projectName: config.projectName }),
-    dockerFeature({ projectName: config.projectName }),
+    ...(config.includeDatabase ? [
+      databaseFeature({ orm: config.orm, projectName: config.projectName }),
+      dockerFeature({ projectName: config.projectName }),
+    ] : []),
     swaConfigFeature({ framework: config.framework, packageManager: config.packageManager, includeAuth: config.includeAuth }),
-    envFeature({ projectName: config.projectName, orm: config.orm, includeAuth: config.includeAuth, packageManager: config.packageManager }),
+    envFeature({ projectName: config.projectName, orm: config.orm, includeDatabase: config.includeDatabase, includeAuth: config.includeAuth, packageManager: config.packageManager }),
     infraFeature(config),
-    cicdFeature({ projectName: config.projectName, framework: config.framework, packageManager: config.packageManager }),
+    cicdFeature({ projectName: config.projectName, framework: config.framework, packageManager: config.packageManager, orm: config.orm, includeDatabase: config.includeDatabase }),
     copilotInstructionsFeature(config),
   ];
 

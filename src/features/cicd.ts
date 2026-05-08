@@ -6,6 +6,8 @@ interface CicdOptions {
   projectName: string;
   framework: Framework;
   packageManager: PackageManager;
+  orm?: 'prisma' | 'drizzle';
+  includeDatabase?: boolean;
 }
 
 export function cicdFeature(config: CicdOptions): Feature {
@@ -32,18 +34,21 @@ export function cicdFeature(config: CicdOptions): Feature {
 // ---------------------------------------------------------------------------
 
 function deployWorkflow(config: CicdOptions): string {
+  const isDrizzle = config.includeDatabase && config.orm === 'drizzle';
+
   const installCmd =
     config.packageManager === 'yarn' ? 'yarn install --frozen-lockfile'
     : config.packageManager === 'pnpm' ? 'pnpm install --frozen-lockfile'
     : 'npm ci';
 
-  const installSubdirs =
-    config.packageManager === 'yarn' ? 'yarn install:web && yarn install:api'
-    : `${config.packageManager} run install:web && ${config.packageManager} run install:api`;
+  const installSubdirs = isDrizzle
+    ? (config.packageManager === 'yarn' ? 'yarn install:web' : `${config.packageManager} run install:web`)
+    : (config.packageManager === 'yarn' ? 'yarn install:web && yarn install:api'
+      : `${config.packageManager} run install:web && ${config.packageManager} run install:api`);
 
-  const buildCmd =
-    config.packageManager === 'yarn' ? 'yarn build'
-    : `${config.packageManager} run build`;
+  const buildCmd = isDrizzle
+    ? (config.packageManager === 'yarn' ? 'yarn build:web' : `${config.packageManager} run build:web`)
+    : (config.packageManager === 'yarn' ? 'yarn build' : `${config.packageManager} run build`);
 
   const appLocation = config.framework === 'nextjs' ? 'src/web/out'
     : config.framework === 'vite-react' ? 'src/web/dist'
@@ -106,8 +111,7 @@ jobs:
           app_location: ${appLocation}
           api_location: src/api
           skip_app_build: true
-          skip_api_build: true
-
+${isDrizzle ? '' : '          skip_api_build: true\n'}
   close-preview:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest

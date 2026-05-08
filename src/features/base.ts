@@ -66,7 +66,7 @@ function sortObject(obj: Record<string, string>): Record<string, string> {
  * The root package.json is NOT included here — it's generated separately via
  * buildRootPackageJson() after all features are composed, so it can merge all deps/scripts.
  */
-export function baseFeature(projectName: string, packageManager: PackageManager): Feature {
+export function baseFeature(projectName: string, packageManager: PackageManager, includeDatabase = true): Feature {
   return {
     name: 'base',
     files: [
@@ -86,7 +86,7 @@ Built with [create-azure-app](https://github.com/benleane83/create-azure-app).
 # Install root dependencies
 ${pmInstall(packageManager)}
 
-# Start local services (PostgreSQL via Docker) + install sub-projects
+# Install sub-projects${includeDatabase ? ' and start local PostgreSQL' : ''}
 ${pmRun(packageManager, 'setup')}
 
 # Start development server
@@ -98,7 +98,7 @@ ${pmRun(packageManager, 'dev')}
 ### First-time setup
 
 \`\`\`bash
-# 1. Provision Azure infrastructure (SWA, PostgreSQL, Key Vault, etc.)
+# 1. Provision Azure infrastructure (SWA${includeDatabase ? ', PostgreSQL, Key Vault' : ''}, etc.)
 azd up
 
 # 2. Push your code to GitHub
@@ -144,13 +144,13 @@ deployment token dynamically — no static secrets to manage.
 │   └── provision.yml     # Azure infra provisioning (manual)
 ├── src/
 │   ├── web/              # Frontend application
-│   └── api/              # Azure Functions API
+│   └── api/              # Azure Functions API${includeDatabase ? `
 ├── db/
 │   ├── migrations/       # Database migrations
-│   └── schema.*          # ORM schema
+│   └── schema.*          # ORM schema` : ''}
 ├── infra/                # Bicep infrastructure modules
-├── azure.yaml            # AZD manifest
-└── docker-compose.yml    # Local PostgreSQL
+├── azure.yaml            # AZD manifest${includeDatabase ? `
+└── docker-compose.yml    # Local PostgreSQL` : ''}
 \`\`\`
 `,
       },

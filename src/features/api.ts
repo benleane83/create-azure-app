@@ -5,7 +5,8 @@ import { pmRun, pmInstall } from '../utils.js';
 export function apiFeature(config: ProjectConfig): Feature {
   const { projectName } = config;
 
-  const isPrisma = config.orm === 'prisma';
+  const isPrisma = config.includeDatabase && config.orm === 'prisma';
+  const isDrizzle = config.includeDatabase && config.orm === 'drizzle';
 
   const apiScripts: Record<string, string> = {
     build: 'tsc',
@@ -32,19 +33,19 @@ export function apiFeature(config: ProjectConfig): Feature {
               version: '0.1.0',
               private: true,
               type: 'module',
-              main: isPrisma ? 'dist/src/functions/*.js' : 'dist/src/api/src/functions/*.js',
+              main: isDrizzle ? 'dist/functions/*.js' : 'dist/src/functions/*.js',
               scripts: apiScripts,
               dependencies: {
                 '@azure/functions': '^4.6.0',
-                ...(!isPrisma ? {
-                  'drizzle-orm': '^0.38.0',
+                ...(isDrizzle ? {
+                  'drizzle-orm': '^0.45.2',
                   pg: '^8.13.0',
                 } : {}),
               },
               devDependencies: {
                 '@types/node': '^22.0.0',
                 typescript: '^5.8.0',
-                ...(!isPrisma ? {
+                ...(isDrizzle ? {
                   '@types/pg': '^8.11.0',
                 } : {}),
               },
@@ -63,7 +64,7 @@ export function apiFeature(config: ProjectConfig): Feature {
                 module: 'Node16',
                 moduleResolution: 'Node16',
                 outDir: 'dist',
-                rootDir: isPrisma ? '.' : '../..',
+                rootDir: isDrizzle ? 'src' : '.',
                 strict: true,
                 esModuleInterop: true,
                 skipLibCheck: true,
@@ -72,9 +73,7 @@ export function apiFeature(config: ProjectConfig): Feature {
                 sourceMap: true,
                 types: ['node'],
               },
-              include: isPrisma
-                ? ['src/**/*.ts']
-                : ['src/**/*.ts', '../../db/**/*.ts'],
+              include: ['src/**/*.ts'],
             },
             null,
             2
@@ -112,7 +111,9 @@ export function apiFeature(config: ProjectConfig): Feature {
               Values: {
                 FUNCTIONS_WORKER_RUNTIME: 'node',
                 AzureWebJobsStorage: '',
-                DATABASE_URL: `postgresql://postgres:postgres@localhost:5432/${projectName}`,
+                ...(config.includeDatabase ? {
+                  DATABASE_URL: `postgresql://postgres:postgres@localhost:5432/${projectName}`,
+                } : {}),
               },
             },
             null,

@@ -5,19 +5,24 @@ import { pmRun, pmInstall } from '../utils.js';
 interface EnvConfigOptions {
   projectName: string;
   orm: 'prisma' | 'drizzle';
+  includeDatabase: boolean;
   includeAuth: boolean;
   packageManager: PackageManager;
 }
 
 function buildEnvContent(config: EnvConfigOptions): string {
-  const lines: string[] = [
-    '# Database (local Docker Compose defaults)',
-    `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/${config.projectName}`,
-    '',
-    '# Azure (populated by azd)',
-    'AZURE_POSTGRESQL_HOST=',
-    'AZURE_POSTGRESQL_DATABASE=',
-  ];
+  const lines: string[] = [];
+
+  if (config.includeDatabase) {
+    lines.push(
+      '# Database (local Docker Compose defaults)',
+      `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/${config.projectName}`,
+      '',
+      '# Azure (populated by azd)',
+      'AZURE_POSTGRESQL_HOST=',
+      'AZURE_POSTGRESQL_DATABASE=',
+    );
+  }
 
   if (config.includeAuth) {
     lines.push(
@@ -33,14 +38,18 @@ function buildEnvContent(config: EnvConfigOptions): string {
 }
 
 function buildEnvExampleContent(config: EnvConfigOptions): string {
-  const lines: string[] = [
-    '# Database',
-    'DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/DBNAME',
-    '',
-    '# Azure (populated by azd)',
-    'AZURE_POSTGRESQL_HOST=',
-    'AZURE_POSTGRESQL_DATABASE=',
-  ];
+  const lines: string[] = [];
+
+  if (config.includeDatabase) {
+    lines.push(
+      '# Database',
+      'DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/DBNAME',
+      '',
+      '# Azure (populated by azd)',
+      'AZURE_POSTGRESQL_HOST=',
+      'AZURE_POSTGRESQL_DATABASE=',
+    );
+  }
 
   if (config.includeAuth) {
     lines.push(
@@ -90,7 +99,17 @@ export function envFeature(config: EnvConfigOptions): Feature {
       'azure-functions-core-tools': '^4.0.0',
     },
     scripts: {
-      setup: `${pmInstall(config.packageManager)} && docker compose up -d && ${pmRun(config.packageManager, 'install:api')} && ${pmRun(config.packageManager, 'install:web')} && ${pmRun(config.packageManager, 'build:api')} && ${pmRun(config.packageManager, 'db:push')} && ${pmRun(config.packageManager, 'db:seed')}`,
+      setup: [
+        pmInstall(config.packageManager),
+        ...(config.includeDatabase ? ['docker compose up -d'] : []),
+        pmRun(config.packageManager, 'install:api'),
+        pmRun(config.packageManager, 'install:web'),
+        pmRun(config.packageManager, 'build:api'),
+        ...(config.includeDatabase ? [
+          pmRun(config.packageManager, 'db:push'),
+          pmRun(config.packageManager, 'db:seed'),
+        ] : []),
+      ].join(' && '),
       dev: 'swa start',
     },
   };

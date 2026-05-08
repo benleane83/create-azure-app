@@ -374,7 +374,7 @@ function drizzleFeature(projectName: string): Feature {
     name: 'database-drizzle',
     files: [
       {
-        path: 'db/schema.ts',
+        path: 'src/api/src/db/schema.ts',
         content: `// Drizzle schema for ${projectName}
 // Docs: https://orm.drizzle.team/docs/sql-schema-declaration
 
@@ -402,7 +402,7 @@ export const items = pgTable('items', {
 `,
       },
       {
-        path: 'db/seed.ts',
+        path: 'src/api/src/db/seed.ts',
         content: `import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema.js';
@@ -454,7 +454,7 @@ main().catch((e) => {
         content: `import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({
-  schema: './db/schema.ts',
+  schema: './src/api/src/db/schema.ts',
   out: './db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
@@ -467,7 +467,7 @@ export default defineConfig({
         path: 'src/api/src/lib/db.ts',
         content: `import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import * as schema from '../../../../db/schema.js';
+import * as schema from '../db/schema.js';
 
 const pool = new Pool({
   connectionString: process.env['DATABASE_URL'],
@@ -487,7 +487,7 @@ export default db;
 } from '@azure/functions';
 import { eq } from 'drizzle-orm';
 import db from '../lib/db.js';
-import { items } from '../../../../db/schema.js';
+import { items } from '../db/schema.js';
 
 // GET /api/items
 app.http('listItems', {
@@ -627,11 +627,10 @@ app.http('deleteItem', {
 `,
       },
     ],
-    dependencies: {
-      'drizzle-orm': '^0.38.0',
-      pg: '^8.13.0',
-    },
+    dependencies: {},
     devDependencies: {
+      'drizzle-orm': '^0.45.2',
+      pg: '^8.13.0',
       'drizzle-kit': '^0.30.0',
       '@types/pg': '^8.11.0',
       tsx: '^4.19.0',
@@ -639,7 +638,7 @@ app.http('deleteItem', {
     scripts: {
       'db:generate': 'drizzle-kit generate',
       'db:migrate': 'drizzle-kit migrate',
-      'db:seed': 'tsx --env-file=.env db/seed.ts',
+      'db:seed': 'tsx --env-file=.env src/api/src/db/seed.ts',
       'db:push': 'drizzle-kit push',
     },
   };

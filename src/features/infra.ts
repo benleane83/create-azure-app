@@ -5,6 +5,7 @@ interface InfraConfigOptions {
   projectName: string;
   orm: 'prisma' | 'drizzle';
   includeAuth: boolean;
+  includeDatabase: boolean;
   framework: 'nextjs' | 'vite-react' | 'sveltekit';
   packageManager: PackageManager;
 }
@@ -14,17 +15,21 @@ export function infraFeature(config: InfraConfigOptions): Feature {
     name: 'infra',
     files: [
       { path: 'infra/modules/swa.bicep', content: swaBicep() },
-      { path: 'infra/modules/postgres.bicep', content: postgresBicep() },
+      ...(config.includeDatabase ? [
+        { path: 'infra/modules/postgres.bicep', content: postgresBicep() },
+        { path: 'infra/modules/keyvault.bicep', content: keyvaultBicep() },
+      ] : []),
       { path: 'infra/modules/monitoring.bicep', content: monitoringBicep() },
-      { path: 'infra/modules/swa-appsettings.bicep', content: swaAppSettingsBicep() },
-      { path: 'infra/modules/keyvault.bicep', content: keyvaultBicep() },
-      { path: 'infra/main.bicep', content: mainBicep() },
-      { path: 'infra/main.parameters.json', content: mainParametersJson() },
+      { path: 'infra/modules/swa-appsettings.bicep', content: swaAppSettingsBicep(config.includeDatabase) },
+      { path: 'infra/main.bicep', content: mainBicep(config) },
+      { path: 'infra/main.parameters.json', content: mainParametersJson(config.includeDatabase) },
       { path: 'azure.yaml', content: azureYaml(config) },
-      { path: 'scripts/migrate.sh', content: migrateScript(config) },
-      { path: 'scripts/migrate.ps1', content: migratePowershellScript(config) },
-      { path: 'scripts/seed.sh', content: seedScript(config) },
-      { path: 'scripts/seed.ps1', content: seedPowershellScript(config) },
+      ...(config.includeDatabase ? [
+        { path: 'scripts/migrate.sh', content: migrateScript(config) },
+        { path: 'scripts/migrate.ps1', content: migratePowershellScript(config) },
+        { path: 'scripts/seed.sh', content: seedScript(config) },
+        { path: 'scripts/seed.ps1', content: seedPowershellScript(config) },
+      ] : []),
     ],
   };
 }
@@ -240,17 +245,21 @@ output workspaceId string = logAnalytics.id
 `;
 }
 
-function swaAppSettingsBicep(): string {
+function swaAppSettingsBicep(includeDatabase: boolean): string {
+  const dbParam = includeDatabase ? `
+@secure()
+@description('The PostgreSQL connection string to set as DATABASE_URL')
+param databaseUrl string
+` : '';
+
+  const dbSetting = includeDatabase ? `\n    DATABASE_URL: databaseUrl` : '';
+
   return `@description('Name of the existing Static Web App')
 param swaName string
 
 @description('Application Insights connection string')
 param appInsightsConnectionString string
-
-@secure()
-@description('The PostgreSQL connection string to set as DATABASE_URL')
-param databaseUrl string
-
+${dbParam}
 resource swa 'Microsoft.Web/staticSites@2023-12-01' existing = {
   name: swaName
 }
@@ -259,8 +268,7 @@ resource appSettings 'Microsoft.Web/staticSites/config@2023-12-01' = {
   parent: swa
   name: 'appsettings'
   properties: {
-    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString
-    DATABASE_URL: databaseUrl
+    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString${dbSetting}
   }
 }
 `;
@@ -344,7 +352,71 @@ output databaseUrlSecretUri string = databaseUrlSecret.properties.secretUri
 // Root orchestration
 // ---------------------------------------------------------------------------
 
-function mainBicep(): string {
+function mainBicep(config: InfraConfigOptions): string {
+  if (!config.includeDatabase) {
+    return `targetScope = 'subscription'
+
+@minLength(1)
+@maxLength(64)
+@description('Name of the environment used to generate a unique resource token')
+param environmentName string
+
+@minLength(1)
+@description('Primary location for all resources')
+param location string
+
+var tags = {
+  'azd-env-name': environmentName
+}
+var resourceToken = uniqueString(subscription().subscriptionId, environmentName, location)
+
+// Resource Group
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-\${environmentName}'
+  location: location
+  tags: tags
+}
+
+// Static Web App
+module swa 'modules/swa.bicep' = {
+  scope: rg
+  name: 'swa'
+  params: {
+    name: 'swa-\${resourceToken}'
+    location: location
+    tags: tags
+  }
+}
+
+// Monitoring (Log Analytics + Application Insights)
+module monitoring 'modules/monitoring.bicep' = {
+  scope: rg
+  name: 'monitoring'
+  params: {
+    name: 'ai-\${resourceToken}'
+    location: location
+    tags: tags
+  }
+}
+
+// Inject app settings into SWA
+module swaAppSettings 'modules/swa-appsettings.bicep' = {
+  scope: rg
+  name: 'swa-appsettings'
+  params: {
+    swaName: swa.outputs.name
+    appInsightsConnectionString: monitoring.outputs.connectionString
+  }
+}
+
+// Outputs — azd saves these as environment variables
+output AZURE_RESOURCE_GROUP string = rg.name
+output AZURE_SWA_NAME string = swa.outputs.name
+output AZURE_SWA_HOSTNAME string = swa.outputs.defaultHostname
+output AZURE_APPINSIGHTS_CONNECTION_STRING string = monitoring.outputs.connectionString
+`;
+  }
+
   return `targetScope = 'subscription'
 
 @minLength(1)
@@ -453,18 +525,21 @@ output AZURE_KEY_VAULT_URI string = keyvault.outputs.uri
 `;
 }
 
-function mainParametersJson(): string {
+function mainParametersJson(includeDatabase: boolean): string {
+  const parameters: Record<string, unknown> = {
+    environmentName: { value: '${AZURE_ENV_NAME}' },
+    location: { value: '${AZURE_LOCATION}' },
+  };
+  if (includeDatabase) {
+    parameters['dbAdminPassword'] = { value: '${AZURE_DB_ADMIN_PASSWORD}' };
+    parameters['deployerPrincipalId'] = { value: '${AZURE_PRINCIPAL_ID}' };
+  }
   return JSON.stringify(
     {
       $schema:
         'https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#',
       contentVersion: '1.0.0.0',
-      parameters: {
-        environmentName: { value: '${AZURE_ENV_NAME}' },
-        location: { value: '${AZURE_LOCATION}' },
-        dbAdminPassword: { value: '${AZURE_DB_ADMIN_PASSWORD}' },
-        deployerPrincipalId: { value: '${AZURE_PRINCIPAL_ID}' },
-      },
+      parameters,
     },
     null,
     2
@@ -483,19 +558,20 @@ function azureYaml(config: InfraConfigOptions): string {
   const installCmd = config.packageManager === 'yarn' ? 'yarn install' : `${config.packageManager} install`;
   const buildCmd = config.packageManager === 'yarn' ? 'yarn build' : `${config.packageManager} run build`;
 
-  const prismaPreWin = config.orm === 'prisma' ? `
+  const isPrisma = config.includeDatabase && config.orm === 'prisma';
+  const prismaPreWin = isPrisma ? `
         npm run db:generate
 ` : '';
-  const prismaPostWin = config.orm === 'prisma' ? `
+  const prismaPostWin = isPrisma ? `
         cd ../..
         node scripts/sync-prisma-client.mjs
         node scripts/slim-swa-api-package.mjs
         Get-ChildItem "src/api/node_modules/.prisma/client" -Filter *.node | Where-Object { $_.Name -notlike '*debian*' } | Remove-Item -Force -ErrorAction SilentlyContinue
 ` : '';
-  const prismaPrePosix = config.orm === 'prisma' ? `
+  const prismaPrePosix = isPrisma ? `
         npm run db:generate
 ` : '';
-  const prismaPostPosix = config.orm === 'prisma' ? `
+  const prismaPostPosix = isPrisma ? `
         cd ../..
         node scripts/sync-prisma-client.mjs
         node scripts/slim-swa-api-package.mjs
@@ -523,14 +599,14 @@ hooks:
       shell: sh
       run: |${prismaPrePosix}
         cd src/web && ${installCmd} && ${buildCmd}
-        cd ../api && ${installCmd} && ${buildCmd}${prismaPostPosix}
+        cd ../api && ${installCmd} && ${buildCmd}${prismaPostPosix}${config.includeDatabase ? `
   postprovision:
     windows:
       shell: pwsh
       run: scripts/migrate.ps1
     posix:
       shell: sh
-      run: scripts/migrate.sh
+      run: scripts/migrate.sh` : ''}
 `;
 }
 

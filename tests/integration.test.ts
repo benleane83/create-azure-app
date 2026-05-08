@@ -37,12 +37,14 @@ import type { ProjectConfig } from '../src/index.js';
 // This 6-row set covers every pair of option values at least once.
 
 const PAIRWISE_CONFIGS: Omit<ProjectConfig, 'projectName'>[] = [
-  { framework: 'nextjs',     orm: 'prisma',  includeAuth: true,  includeTailwind: true,  packageManager: 'npm' },
-  { framework: 'nextjs',     orm: 'drizzle', includeAuth: false, includeTailwind: false, packageManager: 'npm' },
-  { framework: 'vite-react', orm: 'prisma',  includeAuth: false, includeTailwind: true,  packageManager: 'npm' },
-  { framework: 'vite-react', orm: 'drizzle', includeAuth: true,  includeTailwind: false, packageManager: 'npm' },
-  { framework: 'sveltekit',  orm: 'prisma',  includeAuth: true,  includeTailwind: false, packageManager: 'npm' },
-  { framework: 'sveltekit',  orm: 'drizzle', includeAuth: false, includeTailwind: true,  packageManager: 'npm' },
+  { framework: 'nextjs',     orm: 'prisma',  includeDatabase: true,  includeAuth: true,  includeTailwind: true,  packageManager: 'npm' },
+  { framework: 'nextjs',     orm: 'drizzle', includeDatabase: true,  includeAuth: false, includeTailwind: false, packageManager: 'npm' },
+  { framework: 'vite-react', orm: 'prisma',  includeDatabase: true,  includeAuth: false, includeTailwind: true,  packageManager: 'npm' },
+  { framework: 'vite-react', orm: 'drizzle', includeDatabase: true,  includeAuth: true,  includeTailwind: false, packageManager: 'npm' },
+  { framework: 'sveltekit',  orm: 'prisma',  includeDatabase: true,  includeAuth: true,  includeTailwind: false, packageManager: 'npm' },
+  { framework: 'sveltekit',  orm: 'drizzle', includeDatabase: true,  includeAuth: false, includeTailwind: true,  packageManager: 'npm' },
+  // No-database variant
+  { framework: 'nextjs',     orm: 'prisma',  includeDatabase: false, includeAuth: false, includeTailwind: false, packageManager: 'npm' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -50,7 +52,7 @@ const PAIRWISE_CONFIGS: Omit<ProjectConfig, 'projectName'>[] = [
 function configLabel(cfg: Omit<ProjectConfig, 'projectName'>): string {
   const parts = [
     cfg.framework,
-    cfg.orm,
+    cfg.includeDatabase ? cfg.orm : 'no-database',
     cfg.includeAuth ? 'auth' : 'no-auth',
     cfg.includeTailwind ? 'tailwind' : 'no-tailwind',
   ];
@@ -64,15 +66,17 @@ function generateProject(projectDir: string, config: ProjectConfig) {
     sveltekitFeature(config);
 
   const features = [
-    baseFeature(config.projectName, config.packageManager),
+    baseFeature(config.projectName, config.packageManager, config.includeDatabase),
     frameworkFeature,
     apiFeature(config),
-    databaseFeature({ orm: config.orm, projectName: config.projectName }),
-    dockerFeature({ projectName: config.projectName }),
+    ...(config.includeDatabase ? [
+      databaseFeature({ orm: config.orm, projectName: config.projectName }),
+      dockerFeature({ projectName: config.projectName }),
+    ] : []),
     swaConfigFeature({ framework: config.framework, packageManager: config.packageManager }),
-    envFeature({ projectName: config.projectName, orm: config.orm, includeAuth: config.includeAuth, packageManager: config.packageManager }),
+    envFeature({ projectName: config.projectName, orm: config.orm, includeDatabase: config.includeDatabase, includeAuth: config.includeAuth, packageManager: config.packageManager }),
     infraFeature(config),
-    cicdFeature({ projectName: config.projectName, framework: config.framework, packageManager: config.packageManager }),
+    cicdFeature({ projectName: config.projectName, framework: config.framework, packageManager: config.packageManager, orm: config.orm, includeDatabase: config.includeDatabase }),
     copilotInstructionsFeature(config),
   ];
 
@@ -145,7 +149,7 @@ describe('integration: pairwise template builds', () => {
         run('npm run install:web', projectDir);
 
         // 5. For Prisma: generate client (no DB needed)
-        if (config.orm === 'prisma') {
+        if (config.includeDatabase && config.orm === 'prisma') {
           run('npx prisma generate --schema=../../db/schema.prisma', join(projectDir, 'src/api'));
         }
 
@@ -171,10 +175,31 @@ describe('integration: pairwise template builds', () => {
           : 'SvelteKit';
         expect(copilotInstructions, `should contain framework label '${frameworkLabel}'`).toContain(frameworkLabel);
 
-        // ORM-specific schema file path
-        const schemaFile =
-          config.orm === 'prisma' ? 'db/schema.prisma' : 'src/api/src/db/schema.ts';
-        expect(copilotInstructions, `should contain schema path '${schemaFile}'`).toContain(schemaFile);
+        // ORM-specific schema file path (only when DB is included)
+        if (config.includeDatabase) {
+          const schemaFile =
+            config.orm === 'prisma' ? 'db/schema.prisma' : 'src/api/src/db/schema.ts';
+          expect(copilotInstructions, `should contain schema path '${schemaFile}'`).toContain(schemaFile);
+        }
+
+        // Database-specific assertions
+        if (config.includeDatabase) {
+          expect(existsSync(join(projectDir, 'docker-compose.yml')), 'docker-compose.yml should exist').toBe(true);
+          expect(existsSync(join(projectDir, 'infra', 'modules', 'postgres.bicep')), 'postgres.bicep should exist').toBe(true);
+          expect(existsSync(join(projectDir, 'infra', 'modules', 'keyvault.bicep')), 'keyvault.bicep should exist').toBe(true);
+          const envContent = readFileSync(join(projectDir, '.env'), 'utf-8');
+          expect(envContent, '.env should contain DATABASE_URL').toContain('DATABASE_URL=');
+        } else {
+          expect(existsSync(join(projectDir, 'docker-compose.yml')), 'docker-compose.yml should NOT exist').toBe(false);
+          expect(existsSync(join(projectDir, 'infra', 'modules', 'postgres.bicep')), 'postgres.bicep should NOT exist').toBe(false);
+          expect(existsSync(join(projectDir, 'infra', 'modules', 'keyvault.bicep')), 'keyvault.bicep should NOT exist').toBe(false);
+          const envContent = readFileSync(join(projectDir, '.env'), 'utf-8');
+          expect(envContent, '.env should NOT contain DATABASE_URL').not.toContain('DATABASE_URL=');
+          const itemsContent = readFileSync(join(projectDir, 'src', 'api', 'src', 'functions', 'items.ts'), 'utf-8');
+          expect(itemsContent, 'items.ts should use in-memory store when no DB').toContain('In-memory store');
+          expect(copilotInstructions, 'copilot instructions should not mention docker-compose').not.toContain('docker-compose.yml');
+          expect(copilotInstructions, 'copilot instructions should not mention DB singleton').not.toContain('DB singleton');
+        }
 
         // Auth-specific header rule
         if (config.includeAuth) {

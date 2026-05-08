@@ -11,6 +11,7 @@ export function copilotInstructionsFeature(config: ProjectConfig): Feature {
   const ormLabel = config.orm === 'prisma' ? 'Prisma' : 'Drizzle';
 
   const authAddition = config.includeAuth ? ' · Entra ID (SWA Easy Auth)' : '';
+  const dbAddition = config.includeDatabase ? ` · ${ormLabel} · PostgreSQL` : '';
 
   const staticExportNote =
     config.framework === 'nextjs'
@@ -37,23 +38,11 @@ export function copilotInstructionsFeature(config: ProjectConfig): Feature {
 6. **Auth is header-based** — SWA injects \`x-ms-client-principal\` on API requests. Use \`getUser()\` / \`requireAuth()\` from \`src/api/src/lib/auth.ts\`. Frontend auth via \`useAuth()\` from \`src/web/lib/auth.ts\` (calls \`/.auth/me\`). Do not add a custom auth provider.`
     : '';
 
-  const content = `# Copilot Instructions — ${config.projectName}
+  const dbRule = config.includeDatabase
+    ? `\n\n3. **DB connection singleton** — Always import from \`src/api/src/lib/db.ts\`. Never instantiate a second client.`
+    : '';
 
-This app was scaffolded by \`create-azure-app\`. It runs on Azure Static Web Apps (frontend) + Azure Functions v4 (API) + PostgreSQL, with local dev via SWA CLI and Docker Compose.
-
-**Stack:** ${frameworkLabel} · ${ormLabel} · Azure Functions v4 · PostgreSQL${authAddition}
-
-## Architecture Rules — Do Not Break These
-
-1. **API routes at \`/api/*\`** — SWA proxies these to Azure Functions. Never change this prefix. New endpoints go in \`src/api/src/functions/\`.
-
-2. **Azure Functions v4 pattern** — Every endpoint uses \`app.http('uniqueName', { ... })\`. Never use v3 \`function.json\` style.
-
-3. **DB connection singleton** — Always import from \`src/api/src/lib/db.ts\`. Never instantiate a second client.
-
-4. **Static export only** — ${staticExportNote}. No server-side rendering. All data fetching goes through the Azure Functions API at \`/api/*\`.
-
-5. **\`staticwebapp.config.json\`** — Controls SWA routing and auth. You can add route rules but do not remove \`navigationFallback\` or \`platform.apiRuntime\`.${authRule}
+  const dbCustomization = config.includeDatabase ? `
 
 ## Customizing This App
 
@@ -68,14 +57,45 @@ ${migrateCmd}
 ${seedCmd}
 \`\`\`
 
-### 3. Replace the API endpoints
+### 3. Replace the API endpoints` : `
+
+## Customizing This App
+
+### 1. Replace the API endpoints`;
+
+  const dbFilesToChange = config.includeDatabase ? `| \`${schemaFile}\` | Replace \`Item\` with your domain entities |
+| \`db/seed.ts\` | Replace sample data |
+` : '';
+
+  const dbFilesToLeaveAlone = config.includeDatabase ? `| \`src/api/src/lib/db.ts\` | DB singleton — a second instance causes connection leaks |
+| \`docker-compose.yml\` | Local PostgreSQL setup |
+` : '';
+
+  const dbEndpointImport = config.includeDatabase
+    ? `import db from '../lib/db.js';\n\n`
+    : '';
+
+  const content = `# Copilot Instructions — ${config.projectName}
+
+This app was scaffolded by \`create-azure-app\`. It runs on Azure Static Web Apps (frontend) + Azure Functions v4 (API)${config.includeDatabase ? ' + PostgreSQL' : ''}, with local dev via SWA CLI${config.includeDatabase ? ' and Docker Compose' : ''}.
+
+**Stack:** ${frameworkLabel} · Azure Functions v4${dbAddition}${authAddition}
+
+## Architecture Rules — Do Not Break These
+
+1. **API routes at \`/api/*\`** — SWA proxies these to Azure Functions. Never change this prefix. New endpoints go in \`src/api/src/functions/\`.
+
+2. **Azure Functions v4 pattern** — Every endpoint uses \`app.http('uniqueName', { ... })\`. Never use v3 \`function.json\` style.${dbRule}
+
+${config.includeDatabase ? '4' : '3'}. **Static export only** — ${staticExportNote}. No server-side rendering. All data fetching goes through the Azure Functions API at \`/api/*\`.
+
+${config.includeDatabase ? '5' : '4'}. **\`staticwebapp.config.json\`** — Controls SWA routing and auth. You can add route rules but do not remove \`navigationFallback\` or \`platform.apiRuntime\`.${authRule}
+${dbCustomization}
 Edit or replace \`src/api/src/functions/items.ts\`. Pattern for a new endpoint:
 
 \`\`\`typescript
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import db from '../lib/db.js';
-
-app.http('myEndpoint', {
+${dbEndpointImport}app.http('myEndpoint', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'my-resource',
@@ -85,16 +105,14 @@ app.http('myEndpoint', {
 });
 \`\`\`
 
-### 4. Replace the frontend
+${config.includeDatabase ? '### 4.' : '### 2.'} Replace the frontend
 Edit \`src/web/app/page.tsx\` with your UI. ${pageNote}.
 
 ## Files to Change
 
 | File | Purpose |
 |------|---------|
-| \`${schemaFile}\` | Replace \`Item\` with your domain entities |
-| \`db/seed.ts\` | Replace sample data |
-| \`src/api/src/functions/items.ts\` | Replace with your API endpoints |
+${dbFilesToChange}| \`src/api/src/functions/items.ts\` | Replace with your API endpoints |
 | \`src/web/app/page.tsx\` | Replace placeholder UI |
 | \`src/web/app/globals.css\` | Customize theme and colors |
 | \`src/web/app/layout.tsx\` | Update page title and metadata |
@@ -103,11 +121,9 @@ Edit \`src/web/app/page.tsx\` with your UI. ${pageNote}.
 
 | File | Why |
 |------|-----|
-| \`src/api/src/lib/db.ts\` | DB singleton — a second instance causes connection leaks |
-| \`src/api/host.json\` | Azure Functions host config |
+${dbFilesToLeaveAlone}| \`src/api/host.json\` | Azure Functions host config |
 | \`staticwebapp.config.json\` | SWA routing and auth — only add rules, don't remove existing |
 | \`swa-cli.config.json\` | Local dev proxy config |
-| \`docker-compose.yml\` | Local PostgreSQL setup |
 | \`infra/\` | Bicep IaC — only modify to add Azure resources |
 | \`azure.yaml\` | AZD project config |
 `;
