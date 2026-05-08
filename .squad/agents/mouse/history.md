@@ -27,3 +27,13 @@
 - ⚠️ **Auth field mismatch:** Tests use `auth: boolean` but Neo's implementation uses `includeAuth: boolean`. Update test stubs.
 - Neo's composer exports: `Feature`, `FileEntry`, `compose()`, `writeProject()`. Last-write-wins on same-path files.
 - Separate `buildRootPackageJson()` function handles generated project's package.json after composition.
+
+### 2026-05-08: copilotInstructionsFeature tests added to integration.test.ts
+
+- `copilotInstructionsFeature` lives at `src/features/copilot-instructions.ts`. Generates `.github/copilot-instructions.md` always (no opt-out).
+- The integration test `generateProject()` helper was NOT including this feature — added it alongside the other always-on features.
+- Added `existsSync` + `readFileSync` imports from `node:fs` (separate from `node:fs/promises`).
+- Assertions added as step 8 inside the existing pairwise loop — no new test cases needed. The 6-row pairwise set already covers all combos: nextjs/vite-react/sveltekit × prisma/drizzle × auth/no-auth.
+- Assertions per test case: file exists, contains project name, contains framework label, contains ORM schema path, contains/excludes `x-ms-client-principal` based on `includeAuth`, contains "Files to Leave Alone".
+- `expect` is available globally (vitest `globals: true`) — no import needed.
+- TypeScript check passes cleanly after changes.

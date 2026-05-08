@@ -10,6 +10,7 @@
  */
 
 import { describe, it, afterAll } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -28,6 +29,7 @@ import { envFeature } from '../src/features/env.js';
 import { infraFeature } from '../src/features/infra.js';
 import { cicdFeature } from '../src/features/cicd.js';
 import { tailwindFeature } from '../src/features/tailwind.js';
+import { copilotInstructionsFeature } from '../src/features/copilot-instructions.js';
 import type { ProjectConfig } from '../src/index.js';
 
 // ─── Pairwise covering set ──────────────────────────────────────────────────
@@ -71,6 +73,7 @@ function generateProject(projectDir: string, config: ProjectConfig) {
     envFeature({ projectName: config.projectName, orm: config.orm, includeAuth: config.includeAuth, packageManager: config.packageManager }),
     infraFeature(config),
     cicdFeature({ projectName: config.projectName, framework: config.framework, packageManager: config.packageManager }),
+    copilotInstructionsFeature(config),
   ];
 
   if (config.includeTailwind) {
@@ -151,6 +154,37 @@ describe('integration: pairwise template builds', () => {
 
         // 7. Build web (framework build)
         run('npm run build:web', projectDir);
+
+        // 8. Verify .github/copilot-instructions.md
+        const copilotInstructionsPath = join(projectDir, '.github', 'copilot-instructions.md');
+        expect(existsSync(copilotInstructionsPath), '.github/copilot-instructions.md should exist').toBe(true);
+
+        const copilotInstructions = readFileSync(copilotInstructionsPath, 'utf-8');
+
+        // Contains the project name
+        expect(copilotInstructions, 'should contain project name').toContain(projectName);
+
+        // Framework-specific content
+        const frameworkLabel =
+          config.framework === 'nextjs' ? 'Next.js'
+          : config.framework === 'vite-react' ? 'Vite + React'
+          : 'SvelteKit';
+        expect(copilotInstructions, `should contain framework label '${frameworkLabel}'`).toContain(frameworkLabel);
+
+        // ORM-specific schema file path
+        const schemaFile =
+          config.orm === 'prisma' ? 'db/schema.prisma' : 'src/api/src/db/schema.ts';
+        expect(copilotInstructions, `should contain schema path '${schemaFile}'`).toContain(schemaFile);
+
+        // Auth-specific header rule
+        if (config.includeAuth) {
+          expect(copilotInstructions, 'should contain x-ms-client-principal when auth is enabled').toContain('x-ms-client-principal');
+        } else {
+          expect(copilotInstructions, 'should NOT contain x-ms-client-principal when auth is disabled').not.toContain('x-ms-client-principal');
+        }
+
+        // Files to Leave Alone table
+        expect(copilotInstructions, 'should contain Files to Leave Alone table').toContain('Files to Leave Alone');
       },
       300_000, // 5 minutes per combo — install + build is slow
     );

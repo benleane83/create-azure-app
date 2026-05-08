@@ -9,6 +9,15 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-05-08 — copilot-instructions feature module
+- Created `src/features/copilot-instructions.ts` — generates `.github/copilot-instructions.md` in scaffolded projects.
+- Pattern: extract all conditional strings as variables at top of function body, then compose a single clean template literal. Avoids inline ternaries inside template strings.
+- `authRule` is appended as a conditional block (empty string when auth not included), keeping the numbered list clean — rule #6 only appears when `includeAuth === true`.
+- `schemaFile` differs by ORM: `db/schema.prisma` (Prisma) vs `src/api/src/db/schema.ts` (Drizzle).
+- `pmRun` utility used for `db:migrate` and `db:seed` commands so they honour the user's chosen package manager.
+- Framework-specific notes used in rule #4 (static export) and the "Replace the frontend" step.
+- Neo is wiring the feature into `index.ts` separately — this module exports `copilotInstructionsFeature(config)` only.
+
 ### 2026-05-08: Fix #9 — .env.example uses placeholders instead of real defaults
 - `src/features/env.ts`: `buildEnvExampleContent()` now uses generic placeholders (`USER:PASSWORD@localhost:5432/DBNAME`) instead of copying Docker defaults from `buildEnvContent()`
 - Comment changed from "local Docker Compose defaults" to "Database" — example file shouldn't assume Docker

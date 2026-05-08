@@ -20,6 +20,7 @@ import { envFeature } from './features/env.js';
 import { infraFeature } from './features/infra.js';
 import { cicdFeature } from './features/cicd.js';
 import { tailwindFeature } from './features/tailwind.js';
+import { copilotInstructionsFeature } from './features/copilot-instructions.js';
 
 export type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
 export type ORM = 'prisma' | 'drizzle';
@@ -162,6 +163,7 @@ Run without options for the interactive setup wizard.`);
     envFeature({ projectName: config.projectName, orm: config.orm, includeAuth: config.includeAuth, packageManager: config.packageManager }),
     infraFeature(config),
     cicdFeature({ projectName: config.projectName, framework: config.framework, packageManager: config.packageManager }),
+    copilotInstructionsFeature(config),
   ];
 
   if (config.includeTailwind) {

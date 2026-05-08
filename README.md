@@ -83,10 +83,10 @@ my-app/
 
 | Service | Purpose | Dev-tier cost |
 |---|---|---|
-| **Static Web Apps** (Standard) | Frontend hosting, CDN, PR previews, managed Functions | Standard SKU |
-| **Azure Functions** | TypeScript API layer (HTTP triggers) | Included with SWA |
+| **Static Web Apps** | Frontend hosting, CDN, PR previews, managed Functions | $9/mo (Standard SKU) |
+| **Azure Functions** | TypeScript API layer (HTTP triggers) | Included with SWA Standard |
 | **PostgreSQL Flexible Server** | Managed database with Entra ID auth | ~$12-15/mo (Burstable B1ms) |
-| **Application Insights** | Monitoring and logging | Free tier available |
+| **Application Insights** | Monitoring and logging | Minimal cost |
 | **Key Vault** | Secret management | Minimal cost |
 
 ---
@@ -153,7 +153,7 @@ git remote add origin https://github.com/YOU/my-app.git
 git push -u origin main
 
 # Configure OIDC + GitHub variables (one-time)
-azd pipeline config --provider github --auth-type federated --no-prompt
+azd pipeline config --provider github --auth-type federated
 ```
 
 `azd pipeline config` creates a service principal with federated credentials and

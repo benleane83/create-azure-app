@@ -52,3 +52,8 @@
 - **FIX #21:** `package.json` — Added `"files": ["dist"]` to prevent publishing the entire repo to npm.
 - **FIX #22:** `package.json` — Added `repository`, `homepage`, and `bugs` fields pointing to `github.com/benleane83/create-azure-app`.
 - **FIX #23:** `README.md` — Corrected Tailwind CSS default from "Yes" to "No" to match `initialValue: false` in code.
+
+### 2026-05-08: copilotInstructionsFeature wired into index.ts
+- **Import added:** `import { copilotInstructionsFeature } from './features/copilot-instructions.js';` — appended after existing feature imports (line ~22, after `tailwindFeature` import).
+- **Feature wired:** `copilotInstructionsFeature(config)` added as the last item in the `features` array, after `cicdFeature(...)` and before the closing `]`. Always included (unconditional), takes full `ProjectConfig`.
+- **Feature assembly order (full):** base → framework → api → database → docker → swaConfig → env → infra → cicd → copilotInstructions → tailwind (conditional) → auth (conditional).

@@ -106,7 +106,7 @@ git remote add origin https://github.com/YOUR_USER/${projectName}.git
 git push -u origin main
 
 # 3. Configure OIDC credentials for GitHub Actions
-azd pipeline config --provider github --auth-type federated --no-prompt
+azd pipeline config --provider github --auth-type federated
 \`\`\`
 
 \`azd pipeline config\` creates a service principal with federated credentials and
