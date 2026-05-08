@@ -1,12 +1,12 @@
 import type { Feature } from '../composer.js';
 import type { PackageManager } from '../utils.js';
 import { pmRun } from '../utils.js';
-
-type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
+import type { Framework } from '../index.js';
 
 interface SwaConfigOptions {
   framework: Framework;
   packageManager: PackageManager;
+  includeAuth: boolean;
 }
 
 interface SwaCliConfig {
@@ -76,10 +76,14 @@ function buildSwaConfig(framework: Framework, packageManager: PackageManager): S
 
 /**
  * SWA CLI config feature — generates swa-cli.config.json with
- * framework-specific dev server settings.
+ * framework-specific dev server settings, and staticwebapp.config.json
+ * with routing/platform config (auth-aware).
  */
 export function swaConfigFeature(config: SwaConfigOptions): Feature {
   const swaConfig = buildSwaConfig(config.framework, config.packageManager);
+  const staticDir =
+    config.framework === 'sveltekit' ? 'src/web/static' : 'src/web/public';
+  const appConfig = config.includeAuth ? authSwaAppConfig() : baseSwaAppConfig();
 
   return {
     name: 'swa-config',
@@ -88,6 +92,64 @@ export function swaConfigFeature(config: SwaConfigOptions): Feature {
         path: 'swa-cli.config.json',
         content: JSON.stringify(swaConfig, null, 2) + '\n',
       },
+      { path: 'staticwebapp.config.json', content: appConfig },
+      { path: `${staticDir}/staticwebapp.config.json`, content: appConfig },
     ],
   };
+}
+
+function baseSwaAppConfig(): string {
+  return JSON.stringify(
+    {
+      navigationFallback: {
+        rewrite: '/index.html',
+        exclude: ['/images/*.{png,jpg,gif}', '/css/*', '/api/*'],
+      },
+      platform: {
+        apiRuntime: 'node:20',
+      },
+    },
+    null,
+    2
+  ) + '\n';
+}
+
+function authSwaAppConfig(): string {
+  return JSON.stringify(
+    {
+      routes: [
+        {
+          route: '/login',
+          redirect: '/.auth/login/aad',
+        },
+        {
+          route: '/logout',
+          redirect: '/.auth/logout',
+        },
+        {
+          route: '/api/*',
+          allowedRoles: ['authenticated'],
+        },
+        {
+          route: '/*',
+          allowedRoles: ['authenticated'],
+        },
+      ],
+      responseOverrides: {
+        '401': {
+          redirect: '/.auth/login/aad',
+          statusCode: 302,
+        },
+      },
+      navigationFallback: {
+        rewrite: '/index.html',
+        exclude: ['/images/*.{png,jpg,gif}', '/css/*', '/api/*'],
+      },
+      platform: {
+        apiRuntime: 'node:20',
+      },
+    },
+    null,
+    2
+  ) + '\n';
 }

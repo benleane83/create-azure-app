@@ -14,7 +14,7 @@
 - **Composition engine:** Hybrid approach — static file copies, light `{{var}}` interpolation, and programmatic assembly for package.json + shared configs (deep-merge). No template engine dependency.
 - **Module interface:** `FeatureModule` with `enabled()`, `files()`, `dependencies()`, `scripts()`, `configContributions()`, `templateVars()`, `afterGenerate()`. Order field controls execution sequence.
 - **Package:** Single npm package (not monorepo). ESM, Node 20+, bin entry `create-azure-app`. Build with tsup.
-- **Runtime deps:** Only 3 — `@clack/prompts`, `picocolors`, `deepmerge`. Deliberately minimal.
+- **Runtime deps:** Only 2 — `@clack/prompts`, `picocolors`. Deliberately minimal.
 - **Dev deps:** `tsup`, `typescript`, `vitest`, `@types/node`.
 - **Rejected:** EJS/Handlebars (templates should look like output), fs-extra (native node:fs suffices at Node 20+), chalk (picocolors smaller), commander/yargs (overkill for 1 positional arg), execa (thin child_process wrapper instead).
 - **Key file:** `plan.md` — full project plan with phases, generated project structure, verification criteria.

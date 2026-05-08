@@ -9,6 +9,11 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-05-08: Fix #9 — .env.example uses placeholders instead of real defaults
+- `src/features/env.ts`: `buildEnvExampleContent()` now uses generic placeholders (`USER:PASSWORD@localhost:5432/DBNAME`) instead of copying Docker defaults from `buildEnvContent()`
+- Comment changed from "local Docker Compose defaults" to "Database" — example file shouldn't assume Docker
+- `.env` still has real Docker defaults for local dev; `.env.example` is safe to commit
+
 ### 2026-05-04: Phase 2 Feature Module Pattern
 - Feature functions: `xxxFeature(config: ProjectConfig): Feature` — import types from `../composer.js` and `../index.js`
 - Sub-project deps go in FileEntry content (their own `package.json`), NOT on `Feature.dependencies`

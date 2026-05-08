@@ -17,7 +17,7 @@ export function apiFeature(config: ProjectConfig): Feature {
   if (isPrisma) {
     apiScripts['generate:prisma'] = 'prisma generate --schema=../../db/schema.prisma';
     apiScripts['sync:prisma'] = 'node ../../scripts/sync-prisma-client.mjs';
-    apiScripts['prestart'] = 'npm run generate:prisma && npm run sync:prisma && tsc';
+    apiScripts['prestart'] = 'npx prisma generate --schema=../../db/schema.prisma && node ../../scripts/sync-prisma-client.mjs && tsc';
   }
 
   return {
@@ -36,10 +36,17 @@ export function apiFeature(config: ProjectConfig): Feature {
               scripts: apiScripts,
               dependencies: {
                 '@azure/functions': '^4.6.0',
+                ...(!isPrisma ? {
+                  'drizzle-orm': '^0.38.0',
+                  pg: '^8.13.0',
+                } : {}),
               },
               devDependencies: {
                 '@types/node': '^22.0.0',
                 typescript: '^5.8.0',
+                ...(!isPrisma ? {
+                  '@types/pg': '^8.11.0',
+                } : {}),
               },
             },
             null,
@@ -105,6 +112,7 @@ export function apiFeature(config: ProjectConfig): Feature {
               Values: {
                 FUNCTIONS_WORKER_RUNTIME: 'node',
                 AzureWebJobsStorage: '',
+                DATABASE_URL: `postgresql://postgres:postgres@localhost:5432/${projectName}`,
               },
             },
             null,
@@ -287,39 +295,6 @@ app.http('deleteItem', {
     return { status: 204 };
   },
 });
-`,
-      },
-      {
-        path: 'src/api/src/lib/db.ts',
-        content: `/**
- * Database client placeholder.
- *
- * This module exports a getDb() function that the API functions use
- * for data access. The database feature module (Prisma or Drizzle)
- * replaces this file with a real ORM client and connection.
- *
- * Until the db feature is wired up, API functions use the in-memory
- * array in items.ts as a placeholder.
- */
-
-export interface DbClient {
-  // Placeholder interface — the db feature module provides the real type
-}
-
-let client: DbClient | null = null;
-
-export function getDb(): DbClient {
-  if (!client) {
-    throw new Error(
-      'Database not configured. Run the db feature module to wire up Prisma or Drizzle.'
-    );
-  }
-  return client;
-}
-
-export function initDb(dbClient: DbClient): void {
-  client = dbClient;
-}
 `,
       },
       {

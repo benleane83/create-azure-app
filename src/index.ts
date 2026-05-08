@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import * as p from '@clack/prompts';
@@ -21,8 +21,8 @@ import { infraFeature } from './features/infra.js';
 import { cicdFeature } from './features/cicd.js';
 import { tailwindFeature } from './features/tailwind.js';
 
-type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
-type ORM = 'prisma' | 'drizzle';
+export type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
+export type ORM = 'prisma' | 'drizzle';
 
 export interface ProjectConfig {
   projectName: string;
@@ -34,27 +34,50 @@ export interface ProjectConfig {
 }
 
 async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  if (args.includes('--version') || args.includes('-v')) {
+    const pkgPath = new URL('../package.json', import.meta.url);
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+    console.log(pkg.version);
+    process.exit(0);
+  }
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(`Usage: create-azure-app [project-name] [options]
+
+Options:
+  -v, --version  Show version number
+  -h, --help     Show help
+
+Run without options for the interactive setup wizard.`);
+    process.exit(0);
+  }
+
+  // Extract positional project name (first arg that doesn't start with -)
+  const positionalName = args.find((a) => !a.startsWith('-'));
+
   p.intro(pc.bgCyan(pc.black(' create-azure-app ')));
 
   const answers = await p.group(
     {
       projectName: () =>
-        p.text({
-          message: 'What is your project name?',
-          placeholder: 'my-azure-app',
-          defaultValue: 'my-azure-app',
-          validate: (value) => {
-            if (!value) return 'Project name is required.';
-            if (!/^[a-z0-9-]+$/.test(value))
-              return 'Project name must be lowercase alphanumeric with hyphens only.';
-          },
-        }),
+        positionalName
+          ? Promise.resolve(positionalName)
+          : p.text({
+              message: 'What is your project name?',
+              placeholder: 'my-azure-app',
+              defaultValue: 'my-azure-app',
+              validate: (value) => {
+                if (!value) return 'Project name is required.';
+                if (!/^[a-z0-9-]+$/.test(value))
+                  return 'Project name must be lowercase alphanumeric with hyphens only.';
+              },
+            }),
 
       framework: () =>
         p.select({
           message: 'Which frontend framework?',
           options: [
-            { value: 'nextjs' as const, label: 'Next.js', hint: 'recommended' },
+            { value: 'nextjs' as const, label: 'Next.js' },
             { value: 'vite-react' as const, label: 'Vite + React' },
             { value: 'sveltekit' as const, label: 'SvelteKit' },
           ],
@@ -65,7 +88,7 @@ async function main(): Promise<void> {
         p.select({
           message: 'Which ORM?',
           options: [
-            { value: 'prisma' as const, label: 'Prisma', hint: 'recommended' },
+            { value: 'prisma' as const, label: 'Prisma' },
             { value: 'drizzle' as const, label: 'Drizzle' },
           ],
           initialValue: 'prisma' as const,
@@ -80,7 +103,7 @@ async function main(): Promise<void> {
       includeTailwind: () =>
         p.confirm({
           message: 'Include Tailwind CSS?',
-          initialValue: false,
+          initialValue: true,
         }),
 
       packageManager: () =>
@@ -135,7 +158,7 @@ async function main(): Promise<void> {
     apiFeature(config),
     databaseFeature({ orm: config.orm, projectName: config.projectName }),
     dockerFeature({ projectName: config.projectName }),
-    swaConfigFeature({ framework: config.framework, packageManager: config.packageManager }),
+    swaConfigFeature({ framework: config.framework, packageManager: config.packageManager, includeAuth: config.includeAuth }),
     envFeature({ projectName: config.projectName, orm: config.orm, includeAuth: config.includeAuth, packageManager: config.packageManager }),
     infraFeature(config),
     cicdFeature({ projectName: config.projectName, framework: config.framework, packageManager: config.packageManager }),
@@ -183,7 +206,11 @@ async function main(): Promise<void> {
   // Initialize git repo
   await new Promise<void>((res) => {
     execFile('git', ['init', '-b', 'main'], { cwd: projectDir }, (err) => {
-      if (!err) p.log.success('Initialized git repository.');
+      if (err) {
+        p.log.warn('Could not initialize git repository. Is git installed?');
+      } else {
+        p.log.success('Initialized git repository.');
+      }
       res();
     });
   });

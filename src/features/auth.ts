@@ -5,13 +5,7 @@ import { pmRun } from '../utils.js';
 export function authFeature(config: {
   framework: 'nextjs' | 'vite-react' | 'sveltekit';
 } & Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeTailwind' | 'packageManager'>): Feature {
-  const configContent = swaConfigContent();
-  const staticDir =
-    config.framework === 'sveltekit' ? 'src/web/static' : 'src/web/public';
-
   const files = [
-    { path: 'staticwebapp.config.json', content: configContent },
-    { path: `${staticDir}/staticwebapp.config.json`, content: configContent },
     apiAuthHelper(),
     ...frameworkAuthFiles(config),
   ];
@@ -23,49 +17,6 @@ export function authFeature(config: {
     devDependencies: {},
     scripts: {},
   };
-}
-
-// ─── SWA Configuration ──────────────────────────────────────────────────────
-
-function swaConfigContent(): string {
-  return JSON.stringify(
-    {
-      routes: [
-        {
-          route: '/login',
-          redirect: '/.auth/login/aad',
-        },
-        {
-          route: '/logout',
-          redirect: '/.auth/logout',
-        },
-        {
-          route: '/api/*',
-          allowedRoles: ['authenticated'],
-        },
-        // catch-all MUST be last — SWA evaluates routes top-to-bottom
-        {
-          route: '/*',
-          allowedRoles: ['authenticated'],
-        },
-      ],
-      responseOverrides: {
-        '401': {
-          redirect: '/.auth/login/aad',
-          statusCode: 302,
-        },
-      },
-      navigationFallback: {
-        rewrite: '/index.html',
-        exclude: ['/images/*.{png,jpg,gif}', '/css/*', '/api/*'],
-      },
-      platform: {
-        apiRuntime: 'node:20',
-      },
-    },
-    null,
-    2
-  ) + '\n';
 }
 
 // ─── API Auth Helper ─────────────────────────────────────────────────────────
@@ -550,6 +501,27 @@ export function App() {
 function sveltekitAuth(config: Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeTailwind' | 'packageManager'> & { framework: string }) {
   const { projectName } = config;
   return [
+    {
+      path: 'src/web/src/app.d.ts',
+      content: `// See https://svelte.dev/docs/kit/types#app.d.ts
+// for information about these interfaces
+import type { AuthUser } from '$lib/auth';
+
+declare global {
+  namespace App {
+    // interface Error {}
+    interface Locals {
+      user: AuthUser | null;
+    }
+    // interface PageData {}
+    // interface PageState {}
+    // interface Platform {}
+  }
+}
+
+export {};
+`,
+    },
     {
       path: 'src/web/src/lib/auth.ts',
       content: `/**

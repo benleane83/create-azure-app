@@ -44,3 +44,11 @@
 ### 2026-05-04: Cross-agent update — infra feature wired into index.ts
 - **Tank created `src/features/infra.ts`** (Phase 3 IaC). It was added to the feature composition in `src/index.ts` — infra feature is always included in the feature assembly, similar to docker/swaConfig/env.
 - **New generated files from infra feature:** `infra/modules/swa.bicep`, `infra/modules/postgres.bicep`, `infra/modules/monitoring.bicep`, `infra/modules/keyvault.bicep`, `infra/main.bicep`, `infra/main.parameters.json`, `azure.yaml`, `scripts/migrate.sh`.
+
+### 2026-05-08: Code review fixes batch (FIX #14, #17, #18, #21, #22, #23)
+- **FIX #14:** `src/features/api.ts` — Prisma `prestart` script no longer hardcodes `npm run`. Inlines commands via `npx prisma generate` directly, making it package-manager agnostic.
+- **FIX #17:** `src/index.ts` — Added `--version`/`-v` and `--help`/`-h` flag handling at top of `main()`. Reads version from `../package.json` relative to the script file. Added `readFileSync` import.
+- **FIX #18:** `src/index.ts` — `git init` now logs a warning (`p.log.warn`) on failure instead of silently swallowing errors.
+- **FIX #21:** `package.json` — Added `"files": ["dist"]` to prevent publishing the entire repo to npm.
+- **FIX #22:** `package.json` — Added `repository`, `homepage`, and `bugs` fields pointing to `github.com/benleane83/create-azure-app`.
+- **FIX #23:** `README.md` — Corrected Tailwind CSS default from "Yes" to "No" to match `initialValue: false` in code.

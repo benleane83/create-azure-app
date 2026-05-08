@@ -1,6 +1,6 @@
 # create-azure-app
 
-An interactive CLI that scaffolds a full-stack Azure web app — from a single command to full integrated Azure environment in minutes not hours.
+An interactive CLI that scaffolds a full-stack Azure web app, from a single command to full integrated Azure environment in minutes not hours.
 
 Think **[create-next-app](https://nextjs.org/docs/app/api-reference/cli/create-next-app)** or **[create-t3-app](https://create.t3.gg/)**, but for Azure. Pick your frontend frameworks, ORM, and auth preference, and get a deployable project with infrastructure-as-code, local dev environment, and GitHub CI/CD baked in.
 
@@ -15,7 +15,7 @@ npx create-azure-app my-app
 
 ## Why?
 
-Getting a full-stack app running on Azure shouldn't require stitching together a dozen tutorials. Vercel + Supabase made this easy — `create-azure-app` does the same for Azure.
+Getting a full-stack app running on Azure shouldn't require stitching together a dozen services by hand. Vercel and Supabase made this easy - `create-azure-app` does the same for Azure.
 
 ### How it compares
 
@@ -115,7 +115,7 @@ You'll be prompted to choose:
 | Frontend framework | Next.js, Vite + React, SvelteKit | Next.js |
 | ORM | Prisma, Drizzle | Prisma |
 | Authentication | Yes (Entra ID) / No | Yes |
-| Tailwind CSS | Yes / No | Yes |
+| Tailwind CSS | Yes / No | No |
 | Package manager | npm, pnpm, yarn | npm |
 
 ### Step 2 - Develop locally
@@ -226,23 +226,6 @@ This means:
 - The **auth feature** adds route guards and auth helpers on top
 - The **infra feature** adds Bicep modules, Key Vault wiring, and `azure.yaml` for deployment
 - The **CI/CD feature** generates GitHub Actions workflows with OIDC authentication
-
-The result is a cohesive project where every piece works together, regardless of which options you chose.
-
----
-
-## Roadmap
-
-- [x] Interactive CLI with framework/ORM/auth selection
-- [x] Template composition engine
-- [x] Frontend templates (Next.js, Vite+React, SvelteKit)
-- [x] Azure Functions API with ORM-backed CRUD endpoints
-- [x] Database setup (Prisma + Drizzle) with migrations and seeding
-- [x] Authentication (SWA Easy Auth + Entra ID)
-- [x] Infrastructure-as-Code (Bicep modules)
-- [x] Key Vault secret management
-- [x] Local dev environment (Docker Compose + SWA CLI)
-- [x] GitHub Actions CI/CD (OIDC + preview environments)
 
 ---
 

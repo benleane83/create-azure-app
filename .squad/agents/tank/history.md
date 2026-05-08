@@ -38,3 +38,9 @@
 - Bicep string interpolation (`${var}`) must be escaped as `\${var}` in JS template literals — easy to miss
 - Key Vault Secrets User role GUID: `4633458b-17de-408a-b874-0445c86b69e6`
 - `main.parameters.json` uses `${AZURE_ENV_NAME}` and `${AZURE_LOCATION}` — azd resolves these. DB password param has no default so azd prompts for it
+
+### 2026-05-08: Fix #19 — Type deduplication across feature files
+- Exported `Framework` and `ORM` types from `src/index.ts` (were local-only)
+- Removed local `type Framework` redefinitions from `src/features/cicd.ts`, `src/features/swa-config.ts`, `src/features/tailwind.ts` — now import from `../index.js`
+- Removed local `type PackageManager` from `src/features/cicd.ts` — now imports from `../utils.js`
+- Pattern: canonical type sources are `src/index.ts` (Framework, ORM, ProjectConfig) and `src/utils.ts` (PackageManager)

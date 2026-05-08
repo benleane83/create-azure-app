@@ -34,8 +34,8 @@ function buildEnvContent(config: EnvConfigOptions): string {
 
 function buildEnvExampleContent(config: EnvConfigOptions): string {
   const lines: string[] = [
-    '# Database (local Docker Compose defaults)',
-    `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/${config.projectName}`,
+    '# Database',
+    'DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/DBNAME',
     '',
     '# Azure (populated by azd)',
     'AZURE_POSTGRESQL_HOST=',

@@ -1,7 +1,6 @@
 import type { Feature } from '../composer.js';
-
-type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
-type PackageManager = 'npm' | 'pnpm' | 'yarn';
+import type { PackageManager } from '../utils.js';
+import type { Framework } from '../index.js';
 
 interface CicdOptions {
   projectName: string;
@@ -81,7 +80,7 @@ jobs:
       - name: Get SWA deployment token
         id: swa-token
         run: |
-          SWA_NAME=$(az staticwebapp list --resource-group rg-${config.projectName} --query "[0].name" -o tsv)
+          SWA_NAME=$(az staticwebapp list --resource-group rg-\${{ vars.AZURE_ENV_NAME || '${config.projectName}' }} --query "[0].name" -o tsv)
           TOKEN=$(az staticwebapp secrets list --name "$SWA_NAME" --query "properties.apiKey" -o tsv)
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
@@ -124,7 +123,7 @@ jobs:
       - name: Get SWA deployment token
         id: swa-token
         run: |
-          SWA_NAME=$(az staticwebapp list --resource-group rg-${config.projectName} --query "[0].name" -o tsv)
+          SWA_NAME=$(az staticwebapp list --resource-group rg-\${{ vars.AZURE_ENV_NAME || '${config.projectName}' }} --query "[0].name" -o tsv)
           TOKEN=$(az staticwebapp secrets list --name "$SWA_NAME" --query "properties.apiKey" -o tsv)
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"

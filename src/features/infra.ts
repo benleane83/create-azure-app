@@ -10,10 +10,6 @@ interface InfraConfigOptions {
 }
 
 export function infraFeature(config: InfraConfigOptions): Feature {
-  const baseConfig = baseSwaAppConfig();
-  const staticDir =
-    config.framework === 'sveltekit' ? 'src/web/static' : 'src/web/public';
-
   return {
     name: 'infra',
     files: [
@@ -29,8 +25,6 @@ export function infraFeature(config: InfraConfigOptions): Feature {
       { path: 'scripts/migrate.ps1', content: migratePowershellScript(config) },
       { path: 'scripts/seed.sh', content: seedScript(config) },
       { path: 'scripts/seed.ps1', content: seedPowershellScript(config) },
-      { path: 'staticwebapp.config.json', content: baseConfig },
-      { path: `${staticDir}/staticwebapp.config.json`, content: baseConfig },
     ],
   };
 }
@@ -253,8 +247,9 @@ param swaName string
 @description('Application Insights connection string')
 param appInsightsConnectionString string
 
-@description('Key Vault secret URI for the DATABASE_URL')
-param databaseUrlSecretUri string
+@secure()
+@description('The PostgreSQL connection string to set as DATABASE_URL')
+param databaseUrl string
 
 resource swa 'Microsoft.Web/staticSites@2023-12-01' existing = {
   name: swaName
@@ -265,7 +260,7 @@ resource appSettings 'Microsoft.Web/staticSites/config@2023-12-01' = {
   name: 'appsettings'
   properties: {
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString
-    DATABASE_URL: '@Microsoft.KeyVault(SecretUri=\${databaseUrlSecretUri})'
+    DATABASE_URL: databaseUrl
   }
 }
 `;
@@ -281,8 +276,11 @@ param location string
 @description('Tags for the resource')
 param tags object = {}
 
-@description('Principal ID to grant Key Vault Secrets User role')
+@description('Principal ID to grant Key Vault Secrets User role (SWA managed identity)')
 param principalId string
+
+@description('Principal ID of the deployer to grant Key Vault Secrets User role for migrations')
+param deployerPrincipalId string
 
 @secure()
 @description('PostgreSQL connection string to store as a secret')
@@ -324,6 +322,17 @@ resource keyVaultSecretUserRole 'Microsoft.Authorization/roleAssignments@2022-04
   }
 }
 
+// Grant the deployer "Key Vault Secrets User" role so postprovision migration scripts can read the secret
+resource deployerKeyVaultSecretUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: keyVault
+  name: guid(keyVault.id, deployerPrincipalId, '4633458b-17de-408a-b874-0445c86b69e6')
+  properties: {
+    principalId: deployerPrincipalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+    principalType: 'User'
+  }
+}
+
 output name string = keyVault.name
 output uri string = keyVault.properties.vaultUri
 output id string = keyVault.id
@@ -353,6 +362,9 @@ param dbAdminLogin string = 'pgadmin'
 @secure()
 @description('PostgreSQL administrator password')
 param dbAdminPassword string
+
+@description('Principal ID of the deployer (used to grant Key Vault access for migrations)')
+param deployerPrincipalId string = ''
 
 var tags = {
   'azd-env-name': environmentName
@@ -411,18 +423,19 @@ module keyvault 'modules/keyvault.bicep' = {
     location: location
     tags: tags
     principalId: swa.outputs.principalId
+    deployerPrincipalId: deployerPrincipalId
     databaseUrl: 'postgresql://\${dbAdminLogin}:\${dbAdminPassword}@\${postgres.outputs.fqdn}:5432/\${postgres.outputs.databaseName}?sslmode=require'
   }
 }
 
-// Inject app settings into SWA — DATABASE_URL via Key Vault reference
+// Inject app settings into SWA — DATABASE_URL set directly (SWA managed functions don't resolve Key Vault references)
 module swaAppSettings 'modules/swa-appsettings.bicep' = {
   scope: rg
   name: 'swa-appsettings'
   params: {
     swaName: swa.outputs.name
     appInsightsConnectionString: monitoring.outputs.connectionString
-    databaseUrlSecretUri: keyvault.outputs.databaseUrlSecretUri
+    databaseUrl: 'postgresql://\${dbAdminLogin}:\${dbAdminPassword}@\${postgres.outputs.fqdn}:5432/\${postgres.outputs.databaseName}?sslmode=require'
   }
 }
 
@@ -450,6 +463,7 @@ function mainParametersJson(): string {
         environmentName: { value: '${AZURE_ENV_NAME}' },
         location: { value: '${AZURE_LOCATION}' },
         dbAdminPassword: { value: '${AZURE_DB_ADMIN_PASSWORD}' },
+        deployerPrincipalId: { value: '${AZURE_PRINCIPAL_ID}' },
       },
     },
     null,
@@ -541,10 +555,31 @@ echo "Running database migration..."
 if [ -z "$DATABASE_URL" ]; then
   echo "Retrieving DATABASE_URL from Key Vault..."
   export DATABASE_URL=$(az keyvault secret show \\
-    --vault-name "\\$AZURE_KEY_VAULT_NAME" \\
+    --vault-name "$AZURE_KEY_VAULT_NAME" \\
     --name "DATABASE-URL" \\
     --query value -o tsv)
 fi
+
+# Add a temporary firewall rule to allow this machine to reach PostgreSQL.
+MY_IP=$(curl -s https://api.ipify.org)
+echo "Opening firewall for \$MY_IP..."
+az postgres flexible-server firewall-rule create \\
+  --resource-group "\$AZURE_RESOURCE_GROUP" \\
+  --name "\$AZURE_POSTGRESQL_SERVER_NAME" \\
+  --rule-name "MigrationTemp" \\
+  --start-ip-address "\$MY_IP" \\
+  --end-ip-address "\$MY_IP" \\
+  --output none
+
+cleanup() {
+  echo "Removing temporary firewall rule..."
+  az postgres flexible-server firewall-rule delete \\
+    --resource-group "\$AZURE_RESOURCE_GROUP" \\
+    --name "\$AZURE_POSTGRESQL_SERVER_NAME" \\
+    --rule-name "MigrationTemp" \\
+    --yes --output none
+}
+trap cleanup EXIT
 
 ${migrateCmd}
 
@@ -578,7 +613,27 @@ if (-not $env:DATABASE_URL) {
     --query value -o tsv
 }
 
-${migrateCmd}
+# Add a temporary firewall rule to allow this machine to reach PostgreSQL.
+$myIp = (Invoke-RestMethod -Uri "https://api.ipify.org")
+Write-Host "Opening firewall for $myIp..."
+az postgres flexible-server firewall-rule create \`
+  --resource-group $env:AZURE_RESOURCE_GROUP \`
+  --name $env:AZURE_POSTGRESQL_SERVER_NAME \`
+  --rule-name "MigrationTemp" \`
+  --start-ip-address $myIp \`
+  --end-ip-address $myIp \`
+  --output none 2>&1
+
+try {
+  ${migrateCmd}
+} finally {
+  Write-Host "Removing temporary firewall rule..."
+  az postgres flexible-server firewall-rule delete \`
+    --resource-group $env:AZURE_RESOURCE_GROUP \`
+    --name $env:AZURE_POSTGRESQL_SERVER_NAME \`
+    --rule-name "MigrationTemp" \`
+    --yes --output none 2>&1
+}
 
 Write-Host "Migration complete."
 Pop-Location
@@ -601,7 +656,7 @@ echo "🌱 Seeding Azure database..."
 if [ -z "$DATABASE_URL" ]; then
   echo "Retrieving DATABASE_URL from Key Vault..."
   export DATABASE_URL=$(az keyvault secret show \\
-    --vault-name "\\$AZURE_KEY_VAULT_NAME" \\
+    --vault-name "$AZURE_KEY_VAULT_NAME" \\
     --name "DATABASE-URL" \\
     --query value -o tsv)
 fi
@@ -682,18 +737,4 @@ Pop-Location
 // Base SWA app config (overridden by auth feature when auth is enabled)
 // ---------------------------------------------------------------------------
 
-function baseSwaAppConfig(): string {
-  return JSON.stringify(
-    {
-      navigationFallback: {
-        rewrite: '/index.html',
-        exclude: ['/images/*.{png,jpg,gif}', '/css/*', '/api/*'],
-      },
-      platform: {
-        apiRuntime: 'node:20',
-      },
-    },
-    null,
-    2
-  ) + '\n';
-}
+

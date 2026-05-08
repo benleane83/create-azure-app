@@ -1,6 +1,5 @@
 import type { Feature, FileEntry } from '../composer.js';
-
-type Framework = 'nextjs' | 'vite-react' | 'sveltekit';
+import type { Framework } from '../index.js';
 
 interface TailwindOptions {
   framework: Framework;

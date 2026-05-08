@@ -71,8 +71,8 @@ async function main(): Promise<void> {
       name: 'Alice',
       items: {
         create: [
-          { title: 'Create your app', description: 'Choose your frontend framework, ORM, and auth preferences to generate your Azure project.', completed: false },
-          { title: 'Develop locally', description: 'Run your full stack locally with Docker PostgreSQL, SWA CLI, and hot reload across frontend and API.', completed: false },
+          { title: 'Create your app', description: 'Choose your frontend framework, ORM, and auth preferences to generate your Azure project.', completed: true },
+          { title: 'Develop locally', description: 'Run your full stack locally with Docker PostgreSQL, SWA CLI, and hot reload across frontend and API.', completed: true },
         ],
       },
     },
@@ -359,7 +359,7 @@ for (const rel of removePaths) {
     scripts: {
       'db:generate': 'prisma generate --schema=db/schema.prisma',
       'db:migrate': 'prisma migrate dev --schema=db/schema.prisma',
-      'db:seed': 'tsx db/seed.ts',
+      'db:seed': 'tsx --env-file=.env db/seed.ts',
       'db:seed:azure': 'pwsh scripts/seed.ps1',
       'db:seed:azure:posix': 'bash scripts/seed.sh',
       'db:push': 'prisma db push --schema=db/schema.prisma',

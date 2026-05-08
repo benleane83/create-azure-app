@@ -92,7 +92,7 @@ function generateProject(projectDir: string, config: ProjectConfig) {
 
 function run(cmd: string, cwd: string) {
   try {
-    execSync(cmd, { cwd, stdio: 'pipe', timeout: 120_000 });
+    execSync(cmd, { cwd, stdio: 'pipe', timeout: 180_000 });
   } catch (err: any) {
     const stderr = err.stderr?.toString() || '';
     const stdout = err.stdout?.toString() || '';

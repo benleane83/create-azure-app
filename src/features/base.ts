@@ -78,7 +78,7 @@ export function baseFeature(projectName: string, packageManager: PackageManager)
         path: 'README.md',
         content: `# ${projectName}
 
-Built with [create-azure-app](https://github.com/bradygaster/create-azure-app).
+Built with [create-azure-app](https://github.com/benleane83/create-azure-app).
 
 ## Quick Start (Local Development)
 

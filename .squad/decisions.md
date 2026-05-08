@@ -11,7 +11,7 @@
 ### 2026-05-04: Phase 1 Architecture — Single Package, Minimal Deps
 **By:** Morpheus (Lead) | **Requested by:** Ben Leane
 - Single npm package `create-azure-app` (not monorepo). ESM, Node 20+, bin entry. Build with tsup.
-- Runtime deps (3): `@clack/prompts`, `picocolors`, `deepmerge`.
+- Runtime deps (2): `@clack/prompts`, `picocolors`.
 - Dev deps (4): `tsup`, `typescript`, `vitest`, `@types/node`.
 - Rejected: EJS/Handlebars, fs-extra, chalk, commander/yargs, execa.
 
