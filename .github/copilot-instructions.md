@@ -1,0 +1,1 @@
+When working on changes to this application, don't run the integration tests (/tests/integration.test.ts) unless I prompt you to. These tests are slow and meant to be run as a final check before merging, not during development. Focus on unit tests and manual testing of your changes.

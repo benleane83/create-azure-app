@@ -171,13 +171,34 @@ interface Item {
 const items: Item[] = [
   {
     id: '1',
-    name: 'Sample item',
-    description: 'This is a sample item created by the scaffolder.',
+    name: 'Create your app',
+    description: 'Choose your frontend framework, ORM, and auth preferences to generate your Azure project.',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+  },
+  {
+    id: '2',
+    name: 'Develop locally',
+    description: 'Run your full stack locally with SWA CLI and hot reload across frontend and API.',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+  },
+  {
+    id: '3',
+    name: 'Deploy to Azure',
+    description: 'Provision infrastructure and deploy your app in one command with azd up.',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+  },
+  {
+    id: '4',
+    name: 'Set up CI/CD',
+    description: 'Configure GitHub Actions with OIDC to auto-deploy on push with azd pipeline config.',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
   },
 ];
-let nextId = 2;
+let nextId = 5;
 
 // GET /api/items
 app.http('listItems', {
