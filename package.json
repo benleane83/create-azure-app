@@ -1,6 +1,6 @@
 {
   "name": "create-azure-app",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Interactive CLI that scaffolds AZD-compatible full-stack Azure projects (SWA + Functions + PostgreSQL + Entra ID)",
   "type": "module",
   "bin": {

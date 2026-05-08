@@ -14,7 +14,7 @@ export function viteReactFeature(config: ProjectConfig): Feature {
           JSON.stringify(
             {
               name: `${projectName}-web`,
-              version: '0.1.0',
+              version: '0.1.1',
               private: true,
               type: 'module',
               scripts: {
@@ -163,8 +163,8 @@ export function App() {
               <span className="config-value">${config.framework === 'nextjs' ? 'Next.js' : config.framework === 'vite-react' ? 'Vite + React' : 'SvelteKit'}</span>
             </div>
             <div className="config-item">
-              <span className="config-label">ORM</span>
-              <span className="config-value">${config.orm === 'prisma' ? 'Prisma' : 'Drizzle'}</span>
+              <span className="config-label">Database</span>
+              <span className="config-value">${config.includeDatabase ? (config.orm === 'prisma' ? 'Prisma' : 'Drizzle') : 'None (mock data)'}</span>
             </div>
             <div className="config-item">
               <span className="config-label">Auth</span>

@@ -14,7 +14,7 @@ export function sveltekitFeature(config: ProjectConfig): Feature {
           JSON.stringify(
             {
               name: `${projectName}-web`,
-              version: '0.1.0',
+              version: '0.1.1',
               private: true,
               type: 'module',
               scripts: {
@@ -182,8 +182,8 @@ export {};
         <span class="config-value">${config.framework === 'nextjs' ? 'Next.js' : config.framework === 'vite-react' ? 'Vite + React' : 'SvelteKit'}</span>
       </div>
       <div class="config-item">
-        <span class="config-label">ORM</span>
-        <span class="config-value">${config.orm === 'prisma' ? 'Prisma' : 'Drizzle'}</span>
+        <span class="config-label">Database</span>
+        <span class="config-value">${config.includeDatabase ? (config.orm === 'prisma' ? 'Prisma' : 'Drizzle') : 'None (mock data)'}</span>
       </div>
       <div class="config-item">
         <span class="config-label">Auth</span>

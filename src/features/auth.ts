@@ -4,7 +4,7 @@ import { pmRun } from '../utils.js';
 
 export function authFeature(config: {
   framework: 'nextjs' | 'vite-react' | 'sveltekit';
-} & Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeTailwind' | 'packageManager'>): Feature {
+} & Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeDatabase' | 'includeTailwind' | 'packageManager'>): Feature {
   const files = [
     apiAuthHelper(),
     ...frameworkAuthFiles(config),
@@ -91,7 +91,7 @@ export function requireAuth(request: HttpRequest): AuthUser {
 function frameworkAuthFiles(
   config: {
     framework: 'nextjs' | 'vite-react' | 'sveltekit';
-  } & Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeTailwind' | 'packageManager'>
+  } & Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeDatabase' | 'includeTailwind' | 'packageManager'>
 ) {
   switch (config.framework) {
     case 'nextjs':
@@ -105,7 +105,7 @@ function frameworkAuthFiles(
 
 // ─── Next.js ─────────────────────────────────────────────────────────────────
 
-function nextjsAuth(config: Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeTailwind' | 'packageManager'> & { framework: string }) {
+function nextjsAuth(config: Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeDatabase' | 'includeTailwind' | 'packageManager'> & { framework: string }) {
   const { projectName } = config;
   return [
     {
@@ -242,8 +242,8 @@ export default function Home() {
               <span className="config-value">${config.framework === 'nextjs' ? 'Next.js' : config.framework === 'vite-react' ? 'Vite + React' : 'SvelteKit'}</span>
             </div>
             <div className="config-item">
-              <span className="config-label">ORM</span>
-              <span className="config-value">${config.orm === 'prisma' ? 'Prisma' : 'Drizzle'}</span>
+              <span className="config-label">Database</span>
+              <span className="config-value">${config.includeDatabase ? (config.orm === 'prisma' ? 'Prisma' : 'Drizzle') : 'None (mock data)'}</span>
             </div>
             <div className="config-item">
               <span className="config-label">Auth</span>
@@ -303,7 +303,7 @@ export default function Home() {
 
 // ─── Vite + React ────────────────────────────────────────────────────────────
 
-function viteReactAuth(config: Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeTailwind' | 'packageManager'> & { framework: string }) {
+function viteReactAuth(config: Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeDatabase' | 'includeTailwind' | 'packageManager'> & { framework: string }) {
   const { projectName } = config;
   return [
     {
@@ -437,8 +437,8 @@ export function App() {
               <span className="config-value">${config.framework === 'nextjs' ? 'Next.js' : config.framework === 'vite-react' ? 'Vite + React' : 'SvelteKit'}</span>
             </div>
             <div className="config-item">
-              <span className="config-label">ORM</span>
-              <span className="config-value">${config.orm === 'prisma' ? 'Prisma' : 'Drizzle'}</span>
+              <span className="config-label">Database</span>
+              <span className="config-value">${config.includeDatabase ? (config.orm === 'prisma' ? 'Prisma' : 'Drizzle') : 'None (mock data)'}</span>
             </div>
             <div className="config-item">
               <span className="config-label">Auth</span>
@@ -498,7 +498,7 @@ export function App() {
 
 // ─── SvelteKit ───────────────────────────────────────────────────────────────
 
-function sveltekitAuth(config: Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeTailwind' | 'packageManager'> & { framework: string }) {
+function sveltekitAuth(config: Pick<ProjectConfig, 'projectName' | 'orm' | 'includeAuth' | 'includeDatabase' | 'includeTailwind' | 'packageManager'> & { framework: string }) {
   const { projectName } = config;
   return [
     {
@@ -655,8 +655,8 @@ export const handle: Handle = async ({ event, resolve }) => {
         <span class="config-value">${config.framework === 'nextjs' ? 'Next.js' : config.framework === 'vite-react' ? 'Vite + React' : 'SvelteKit'}</span>
       </div>
       <div class="config-item">
-        <span class="config-label">ORM</span>
-        <span class="config-value">${config.orm === 'prisma' ? 'Prisma' : 'Drizzle'}</span>
+        <span class="config-label">Database</span>
+        <span class="config-value">${config.includeDatabase ? (config.orm === 'prisma' ? 'Prisma' : 'Drizzle') : 'None (mock data)'}</span>
       </div>
       <div class="config-item">
         <span class="config-label">Auth</span>
