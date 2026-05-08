@@ -2,7 +2,7 @@
 
 An interactive CLI that scaffolds a full-stack Azure web app, from a single command to full integrated Azure environment in minutes not hours.
 
-Think **[create-next-app](https://nextjs.org/docs/app/api-reference/cli/create-next-app)** or **[create-t3-app](https://create.t3.gg/)**, but for Azure. Pick your frontend frameworks, ORM, and auth preference, and get a deployable project with infrastructure-as-code, local dev environment, and GitHub CI/CD baked in.
+Think **[create-next-app](https://nextjs.org/docs/app/api-reference/cli/create-next-app)** or **[create-t3-app](https://create.t3.gg/)**, but for Azure. Pick your frontend framework, ORM, and auth preference, and get a deployable project with infrastructure-as-code, local dev environment, and GitHub CI/CD baked in.
 
 ```
 npx create-azure-app my-app
@@ -21,12 +21,12 @@ Getting a full-stack app running on Azure shouldn't require stitching together a
 
 | | create-azure-app | create-t3-app | create-next-app |
 |---|---|---|---|
-| **Cloud target** | Azure (SWA + Functions + PostgreSQL) | None (BYOH) | Vercel-optimized |
+| **Cloud target** | Azure (SWA + Functions + optional PostgreSQL) | None (BYOH) | Vercel-optimized |
 | **Infrastructure** | Full IaC (Bicep) + `azd up` | Not included | Not included |
-| **Database** | PostgreSQL + Prisma/Drizzle + migrations | Prisma (optional) | Not included |
+| **Database** | PostgreSQL + Prisma/Drizzle (optional) | Prisma (optional) | Not included |
 | **Auth** | Entra ID via SWA Easy Auth | NextAuth.js (optional) | Not included |
 | **API layer** | Azure Functions (TypeScript) | tRPC (optional) | Next.js API routes |
-| **Local dev** | Docker Compose + SWA CLI | Manual setup | `next dev` |
+| **Local dev** | SWA CLI + Docker Compose (when DB enabled) | Manual setup | `next dev` |
 | **Deploy** | `azd up` (one command) | Manual | `vercel` or manual |
 | **CI/CD** | GitHub Actions (OIDC) | Not included | Vercel built-in |
 | **PR previews** | SWA preview environments | Not included | Vercel built-in |
@@ -54,9 +54,9 @@ my-app/
 │   ├── main.parameters.json    # Parameter defaults
 │   └── modules/
 │       ├── swa.bicep           # Static Web App
-│       ├── swa-appsettings.bicep # SWA app settings (Key Vault refs)
-│       ├── postgres.bicep      # PostgreSQL Flexible Server
-│       ├── keyvault.bicep      # Key Vault for secrets
+│       ├── swa-appsettings.bicep # SWA app settings
+│       ├── postgres.bicep      # PostgreSQL Flexible Server  (DB only)
+│       ├── keyvault.bicep      # Key Vault for secrets       (DB only)
 │       └── monitoring.bicep    # Application Insights
 ├── src/
 │   ├── web/                    # Frontend (Next.js | Vite+React | SvelteKit)
@@ -64,18 +64,18 @@ my-app/
 │       └── src/
 │           ├── functions/      # HTTP endpoints (health + CRUD)
 │           └── lib/
-│               ├── db.ts       # ORM client (Prisma or Drizzle)
+│               ├── db.ts       # ORM client (Prisma or Drizzle)  (DB only)
 │               └── auth.ts     # SWA Easy Auth helper
-├── db/
+├── db/                         # (DB only)
 │   ├── schema.prisma           # Database schema (or Drizzle equivalent)
 │   ├── seed.ts                 # Seed script with sample data
 │   └── migrations/
-├── docker-compose.yml          # Local PostgreSQL
+├── docker-compose.yml          # Local PostgreSQL               (DB only)
 ├── swa-cli.config.json         # SWA CLI dev config
 ├── staticwebapp.config.json    # Auth routes + SPA fallback
 ├── scripts/
-│   ├── migrate.sh              # DB migration hook (Linux/macOS)
-│   └── migrate.ps1             # DB migration hook (Windows)
+│   ├── migrate.sh              # DB migration hook (Linux/macOS) (DB only)
+│   └── migrate.ps1             # DB migration hook (Windows)     (DB only)
 └── .env.example
 ```
 
@@ -85,9 +85,9 @@ my-app/
 |---|---|---|
 | **Static Web Apps** | Frontend hosting, CDN, PR previews, managed Functions | $9/mo (Standard SKU) |
 | **Azure Functions** | TypeScript API layer (HTTP triggers) | Included with SWA Standard |
-| **PostgreSQL Flexible Server** | Managed database with Entra ID auth | ~$12-15/mo (Burstable B1ms) |
+| **PostgreSQL Flexible Server** | Managed database with Entra ID auth *(optional)* | ~$12-15/mo (Burstable B1ms) |
 | **Application Insights** | Monitoring and logging | Minimal cost |
-| **Key Vault** | Secret management | Minimal cost |
+| **Key Vault** | Secret management *(optional, database only)* | Minimal cost |
 
 ---
 
@@ -97,7 +97,7 @@ my-app/
 
 - [Node.js](https://nodejs.org/) 20+
 - [Azure Developer CLI (azd)](https://aka.ms/azd)
-- [Docker](https://www.docker.com/) (for local PostgreSQL)
+- [Docker](https://www.docker.com/) (optional, only required when DB is included)
 - [GitHub CLI (gh)](https://cli.github.com/) (optional, for CI/CD setup)
 
 > **Note:** SWA CLI and Azure Functions Core Tools are installed as project dev dependencies — no global install needed.
@@ -113,16 +113,19 @@ You'll be prompted to choose:
 | Option | Choices | Default |
 |---|---|---|
 | Frontend framework | Next.js, Vite + React, SvelteKit | Next.js |
+| Database | Yes / No | Yes |
 | ORM | Prisma, Drizzle | Prisma |
 | Authentication | Yes (Entra ID) / No | Yes |
 | Tailwind CSS | Yes / No | No |
 | Package manager | npm, pnpm, yarn | npm |
 
+> **Note:** The ORM option only appears when database is enabled. When skipped, the API returns in-memory mock data and no PostgreSQL or Docker Compose is included.
+
 ### Step 2 - Develop locally
 
 ```bash
 cd my-app
-npm run setup    # Install all deps, start Postgres (Docker), migrate, seed
+npm run setup    # Install all deps (+ start Postgres, migrate, seed if DB enabled)
 npm run dev      # SWA CLI on http://localhost:4280
 ```
 
@@ -141,8 +144,8 @@ azd up           # Provision infrastructure + deploy app
 Your app is live with:
 - Static Web App serving the frontend via CDN
 - Azure Functions handling API requests
-- PostgreSQL Flexible Server with your schema migrated
-- Key Vault storing `DATABASE_URL` (referenced by SWA at runtime)
+- PostgreSQL Flexible Server with your schema migrated *(if DB enabled)*
+- Key Vault storing `DATABASE_URL` *(if DB enabled)*
 - Application Insights collecting telemetry
 
 ### Step 4 - Set up CI/CD
@@ -180,7 +183,15 @@ azd down         # Remove all Azure resources
 
 **SvelteKit** — SvelteKit 2 with static adapter. Compiled to static files for SWA.
 
+### Database
+
+When enabled, the generated app includes a PostgreSQL schema, seed data, migration scripts, a Docker Compose file for local development, and Bicep modules for Azure PostgreSQL Flexible Server and Key Vault.
+
+When disabled, the API returns in-memory mock data and no database infrastructure is provisioned.
+
 ### ORMs
+
+Only relevant when database is enabled.
 
 **Prisma** (default) — Schema-first ORM with auto-generated TypeScript client. The generated API endpoints use Prisma for all database operations (CRUD on Items + Users). Migrations via `prisma migrate`.
 
@@ -203,14 +214,14 @@ After scaffolding, your project includes these root-level scripts:
 
 | Script | Description |
 |---|---|
-| `npm run setup` | Install root + sub-project deps, start Docker Postgres, run migrations, seed DB |
+| `npm run setup` | Install root + sub-project deps (+ start Docker Postgres, migrate, seed when DB enabled) |
 | `npm run dev` | Start SWA CLI (frontend + API + auth on :4280) |
 | `npm run build` | Build frontend and API |
 | `npm run dev:web` | Start frontend dev server only |
 | `npm run dev:api` | Start Azure Functions only |
-| `npm run db:migrate` | Run database migrations |
-| `npm run db:seed` | Seed the database |
-| `npm run db:push` | Push schema changes (no migration file) |
+| `npm run db:migrate` | Run database migrations *(DB only)* |
+| `npm run db:seed` | Seed the database *(DB only)* |
+| `npm run db:push` | Push schema changes without a migration file *(DB only)* |
 | `npm run install:web` | Install frontend sub-project dependencies |
 | `npm run install:api` | Install API sub-project dependencies |
 
