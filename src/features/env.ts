@@ -106,7 +106,8 @@ export function envFeature(config: EnvConfigOptions): Feature {
         pmRun(config.packageManager, 'install:web'),
         pmRun(config.packageManager, 'build:api'),
         ...(config.includeDatabase ? [
-          pmRun(config.packageManager, 'db:push'),
+          pmRun(config.packageManager, 'db:generate'),
+          pmRun(config.packageManager, 'db:migrate'),
           pmRun(config.packageManager, 'db:seed'),
         ] : []),
       ].join(' && '),

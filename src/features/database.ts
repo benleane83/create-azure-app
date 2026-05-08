@@ -362,7 +362,6 @@ for (const rel of removePaths) {
       'db:seed': 'tsx --env-file=.env db/seed.ts',
       'db:seed:azure': 'pwsh scripts/seed.ps1',
       'db:seed:azure:posix': 'bash scripts/seed.sh',
-      'db:push': 'prisma db push --schema=db/schema.prisma',
     },
   };
 }

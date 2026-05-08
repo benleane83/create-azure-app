@@ -627,13 +627,16 @@ cd "$(dirname "$0")/.."
 
 echo "Running database migration..."
 
-# Prefer DATABASE_URL if already set, otherwise retrieve from Key Vault.
+# Always retrieve DATABASE_URL from Key Vault — never trust a locally-set value
+# (Prisma auto-loads .env, so an existing DATABASE_URL would silently migrate localhost).
+echo "Retrieving DATABASE_URL from Key Vault..."
+export DATABASE_URL=$(az keyvault secret show \\
+  --vault-name "$AZURE_KEY_VAULT_NAME" \\
+  --name "DATABASE-URL" \\
+  --query value -o tsv)
 if [ -z "$DATABASE_URL" ]; then
-  echo "Retrieving DATABASE_URL from Key Vault..."
-  export DATABASE_URL=$(az keyvault secret show \\
-    --vault-name "$AZURE_KEY_VAULT_NAME" \\
-    --name "DATABASE-URL" \\
-    --query value -o tsv)
+  echo "ERROR: Failed to retrieve DATABASE_URL from Key Vault '$AZURE_KEY_VAULT_NAME'" >&2
+  exit 1
 fi
 
 # Add a temporary firewall rule to allow this machine to reach PostgreSQL.
@@ -680,13 +683,16 @@ Set-Location ..
 
 Write-Host "Running database migration..."
 
-# Prefer DATABASE_URL if already set, otherwise retrieve from Key Vault.
+# Always retrieve DATABASE_URL from Key Vault — never trust a locally-set value
+# (Prisma auto-loads .env, so an existing DATABASE_URL would silently migrate localhost).
+Write-Host "Retrieving DATABASE_URL from Key Vault..."
+$env:DATABASE_URL = az keyvault secret show \`
+  --vault-name $env:AZURE_KEY_VAULT_NAME \`
+  --name "DATABASE-URL" \`
+  --query value -o tsv
 if (-not $env:DATABASE_URL) {
-  Write-Host "Retrieving DATABASE_URL from Key Vault..."
-  $env:DATABASE_URL = az keyvault secret show \`
-    --vault-name $env:AZURE_KEY_VAULT_NAME \`
-    --name "DATABASE-URL" \`
-    --query value -o tsv
+  Write-Error "Failed to retrieve DATABASE_URL from Key Vault '$env:AZURE_KEY_VAULT_NAME'"
+  exit 1
 }
 
 # Add a temporary firewall rule to allow this machine to reach PostgreSQL.

@@ -160,7 +160,7 @@ app.http('health', {
 
 interface Item {
   id: string;
-  name: string;
+  title: string;
   description: string;
   createdAt: string;
   updatedAt: string;
@@ -171,28 +171,28 @@ interface Item {
 const items: Item[] = [
   {
     id: '1',
-    name: 'Create your app',
+    title: 'Create your app',
     description: 'Choose your frontend framework, ORM, and auth preferences to generate your Azure project.',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
   },
   {
     id: '2',
-    name: 'Develop locally',
+    title: 'Develop locally',
     description: 'Run your full stack locally with SWA CLI and hot reload across frontend and API.',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
   },
   {
     id: '3',
-    name: 'Deploy to Azure',
+    title: 'Deploy to Azure',
     description: 'Provision infrastructure and deploy your app in one command with azd up.',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
   },
   {
     id: '4',
-    name: 'Set up CI/CD',
+    title: 'Set up CI/CD',
     description: 'Configure GitHub Actions with OIDC to auto-deploy on push with azd pipeline config.',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
@@ -243,18 +243,18 @@ app.http('createItem', {
     context: InvocationContext
   ): Promise<HttpResponseInit> => {
     const body = (await request.json()) as {
-      name?: string;
+      title?: string;
       description?: string;
     };
 
-    if (!body.name) {
-      return { status: 400, jsonBody: { error: 'Name is required' } };
+    if (!body.title) {
+      return { status: 400, jsonBody: { error: 'Title is required' } };
     }
 
     const now = new Date().toISOString();
     const item: Item = {
       id: String(nextId++),
-      name: body.name,
+      title: body.title,
       description: body.description ?? '',
       createdAt: now,
       updatedAt: now,
@@ -282,13 +282,13 @@ app.http('updateItem', {
     }
 
     const body = (await request.json()) as {
-      name?: string;
+      title?: string;
       description?: string;
     };
 
     items[index] = {
       ...items[index],
-      ...(body.name !== undefined && { name: body.name }),
+      ...(body.title !== undefined && { title: body.title }),
       ...(body.description !== undefined && { description: body.description }),
       updatedAt: new Date().toISOString(),
     };
