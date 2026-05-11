@@ -1,5 +1,5 @@
 import type { Feature } from '../composer.js';
-import type { PackageManager } from '../utils.js';
+import { pmRun, type PackageManager } from '../utils.js';
 
 interface InfraConfigOptions {
   projectName: string;
@@ -559,10 +559,11 @@ function azureYaml(config: InfraConfigOptions): string {
 
   const installCmd = config.packageManager === 'yarn' ? 'yarn install' : `${config.packageManager} install`;
   const buildCmd = config.packageManager === 'yarn' ? 'yarn build' : `${config.packageManager} run build`;
+    const generateCmd = pmRun(config.packageManager, 'db:generate');
 
   const isPrisma = config.includeDatabase && config.orm === 'prisma';
   const prismaPreWin = isPrisma ? `
-        npm run db:generate
+      ${generateCmd}
 ` : '';
   const prismaPostWin = isPrisma ? `
         cd ../..
@@ -571,7 +572,7 @@ function azureYaml(config: InfraConfigOptions): string {
         Get-ChildItem "src/api/node_modules/.prisma/client" -Filter *.node | Where-Object { $_.Name -notlike '*debian*' } | Remove-Item -Force -ErrorAction SilentlyContinue
 ` : '';
   const prismaPrePosix = isPrisma ? `
-        npm run db:generate
+      ${generateCmd}
 ` : '';
   const prismaPostPosix = isPrisma ? `
         cd ../..

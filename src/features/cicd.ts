@@ -29,6 +29,22 @@ export function cicdFeature(config: CicdOptions): Feature {
   };
 }
 
+function swaTokenLookupScript(projectName: string): string {
+  return `          RESOURCE_GROUP=rg-\${{ vars.AZURE_ENV_NAME || '${projectName}' }}
+          SWA_COUNT=$(az resource list --resource-group "$RESOURCE_GROUP" --resource-type "Microsoft.Web/staticSites" --tag "azd-service-name=web" --query "length(@)" -o tsv)
+          if [ "$SWA_COUNT" -ne 1 ]; then
+            echo "Expected exactly one Static Web App tagged azd-service-name=web in $RESOURCE_GROUP, found $SWA_COUNT." >&2
+            exit 1
+          fi
+          SWA_NAME=$(az resource list --resource-group "$RESOURCE_GROUP" --resource-type "Microsoft.Web/staticSites" --tag "azd-service-name=web" --query "join('', [].name)" -o tsv)
+          TOKEN=$(az staticwebapp secrets list --name "$SWA_NAME" --query "properties.apiKey" -o tsv)
+          if [ -z "$TOKEN" ]; then
+            echo "Failed to resolve a deployment token for Static Web App $SWA_NAME." >&2
+            exit 1
+          fi
+`;
+}
+
 // ---------------------------------------------------------------------------
 // Deploy workflow — prod on push to main, preview on PR
 // ---------------------------------------------------------------------------
@@ -53,6 +69,7 @@ function deployWorkflow(config: CicdOptions): string {
   const appLocation = config.framework === 'nextjs' ? 'src/web/out'
     : config.framework === 'vite-react' ? 'src/web/dist'
     : 'src/web/build';
+  const swaTokenScript = swaTokenLookupScript(config.projectName);
 
   return `name: Deploy
 
@@ -85,8 +102,7 @@ jobs:
       - name: Get SWA deployment token
         id: swa-token
         run: |
-          SWA_NAME=$(az staticwebapp list --resource-group rg-\${{ vars.AZURE_ENV_NAME || '${config.projectName}' }} --query "[0].name" -o tsv)
-          TOKEN=$(az staticwebapp secrets list --name "$SWA_NAME" --query "properties.apiKey" -o tsv)
+${swaTokenScript}          echo "Resolved Static Web App: $SWA_NAME"
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
@@ -127,8 +143,7 @@ ${isDrizzle ? '' : '          skip_api_build: true\n'}
       - name: Get SWA deployment token
         id: swa-token
         run: |
-          SWA_NAME=$(az staticwebapp list --resource-group rg-\${{ vars.AZURE_ENV_NAME || '${config.projectName}' }} --query "[0].name" -o tsv)
-          TOKEN=$(az staticwebapp secrets list --name "$SWA_NAME" --query "properties.apiKey" -o tsv)
+${swaTokenScript}          echo "Resolved Static Web App: $SWA_NAME"
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 

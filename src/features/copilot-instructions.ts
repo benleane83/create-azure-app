@@ -35,7 +35,9 @@ export function copilotInstructionsFeature(config: ProjectConfig): Feature {
 
   const authRule = config.includeAuth
     ? `
-6. **Auth is header-based** — SWA injects \`x-ms-client-principal\` on API requests. Use \`getUser()\` / \`requireAuth()\` from \`src/api/src/lib/auth.ts\`. Frontend auth via \`useAuth()\` from \`src/web/lib/auth.ts\` (calls \`/.auth/me\`). Do not add a custom auth provider.`
+6. **Auth is header-based** — SWA injects \`x-ms-client-principal\` on API requests. Use \`getUser()\` / \`requireAuth()\` from \`src/api/src/lib/auth.ts\`. Frontend auth via \`useAuth()\` from \`src/web/lib/auth.ts\` (calls \`/.auth/me\`). Do not add a custom auth provider.
+
+7. **Ownership comes from the signed-in principal** — Never accept \`userId\`, \`ownerId\`, or similar ownership fields from API clients. Derive the acting user on the server from \`requireAuth()\` and scope queries/mutations to that user.`
     : '';
 
   const dbRule = config.includeDatabase

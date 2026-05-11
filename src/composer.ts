@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 export interface FileEntry {
@@ -19,6 +19,10 @@ export interface ComposedProject {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
   scripts: Record<string, string>;
+}
+
+export interface WriteProjectOptions {
+  destructiveOverwrite?: boolean;
 }
 
 /**
@@ -53,7 +57,15 @@ export function compose(features: Feature[]): ComposedProject {
  * Write all composed files to the target project directory.
  * Creates intermediate directories as needed.
  */
-export async function writeProject(projectDir: string, files: FileEntry[]): Promise<void> {
+export async function writeProject(
+  projectDir: string,
+  files: FileEntry[],
+  options: WriteProjectOptions = {}
+): Promise<void> {
+  if (options.destructiveOverwrite) {
+    await rm(projectDir, { recursive: true, force: true });
+  }
+
   for (const file of files) {
     const fullPath = join(projectDir, file.path);
     await mkdir(dirname(fullPath), { recursive: true });

@@ -3,6 +3,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execFile } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import { compose, writeProject } from './composer.js';
@@ -35,6 +36,19 @@ export interface ProjectConfig {
   packageManager: PackageManager;
 }
 
+export function validateProjectName(value: string): string | undefined {
+  if (!value) return 'Project name is required.';
+  if (value.length > 214) return 'Project name must be 214 characters or fewer.';
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(value)) {
+    return 'Project name must be lowercase alphanumeric with optional internal hyphens only.';
+  }
+  return undefined;
+}
+
+export function getPositionalProjectName(args: string[]): string | undefined {
+  return args.find((arg) => !arg.startsWith('-'));
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (args.includes('--version') || args.includes('-v')) {
@@ -55,7 +69,7 @@ Run without options for the interactive setup wizard.`);
   }
 
   // Extract positional project name (first arg that doesn't start with -)
-  const positionalName = args.find((a) => !a.startsWith('-'));
+  const positionalName = getPositionalProjectName(args);
 
   p.intro(pc.bgCyan(pc.black(' create-azure-app ')));
 
@@ -68,11 +82,7 @@ Run without options for the interactive setup wizard.`);
               message: 'What is your project name?',
               placeholder: 'my-azure-app',
               defaultValue: 'my-azure-app',
-              validate: (value) => {
-                if (!value) return 'Project name is required.';
-                if (!/^[a-z0-9-]+$/.test(value))
-                  return 'Project name must be lowercase alphanumeric with hyphens only.';
-              },
+              validate: validateProjectName,
             }),
 
       framework: () =>
@@ -168,7 +178,7 @@ Run without options for the interactive setup wizard.`);
     frameworkFeature,
     apiFeature(config),
     ...(config.includeDatabase ? [
-      databaseFeature({ orm: config.orm, projectName: config.projectName }),
+      databaseFeature({ orm: config.orm, projectName: config.projectName, includeAuth: config.includeAuth }),
       dockerFeature({ projectName: config.projectName }),
     ] : []),
     swaConfigFeature({ framework: config.framework, packageManager: config.packageManager, includeAuth: config.includeAuth }),
@@ -196,10 +206,11 @@ Run without options for the interactive setup wizard.`);
 
   // Resolve output directory and check for existing
   const projectDir = resolve(process.cwd(), config.projectName);
+  const willReplaceExisting = existsSync(projectDir);
 
-  if (existsSync(projectDir)) {
+  if (willReplaceExisting) {
     const shouldOverwrite = await p.confirm({
-      message: `Directory ./${config.projectName} already exists. Overwrite?`,
+      message: `Directory ./${config.projectName} already exists. Delete it and recreate it from scratch?`,
       initialValue: false,
     });
 
@@ -211,9 +222,11 @@ Run without options for the interactive setup wizard.`);
 
   // Generate project files
   const s = p.spinner();
-  s.start('Generating project files...');
+  s.start(willReplaceExisting ? 'Deleting existing project directory and regenerating files...' : 'Generating project files...');
 
-  await writeProject(projectDir, allFiles);
+  await writeProject(projectDir, allFiles, {
+    destructiveOverwrite: willReplaceExisting,
+  });
 
   s.stop(`Generated ${allFiles.length} files.`);
 
@@ -260,8 +273,14 @@ function formatORM(orm: ORM): string {
   return labels[orm];
 }
 
-main().catch((err) => {
-  p.log.error('Unexpected error:');
-  console.error(err);
-  process.exit(1);
-});
+const isDirectExecution = process.argv[1]
+  ? pathToFileURL(process.argv[1]).href === import.meta.url
+  : false;
+
+if (isDirectExecution) {
+  main().catch((err) => {
+    p.log.error('Unexpected error:');
+    console.error(err);
+    process.exit(1);
+  });
+}

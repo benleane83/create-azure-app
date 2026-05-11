@@ -15,7 +15,7 @@ npx create-azure-app my-app
 
 ## Why?
 
-Getting a full-stack app running on Azure shouldn't require stitching together a dozen services by hand. Vercel and Supabase made this easy - `create-azure-app` does the same for Azure.
+Getting a full-stack app running on Azure shouldn't require stitching together a dozen services by hand. Vercel and Supabase made this easy for Next.js and Postgres hosting - `create-azure-app` does the same for Azure.
 
 ### How it compares
 

@@ -151,7 +151,29 @@ app.http('health', {
       },
       {
         path: 'src/api/src/functions/items.ts',
-        content: `import {
+        content: itemsFunction(config.includeAuth),
+      },
+      {
+        path: 'src/api/.funcignore',
+        content: `local.settings.json
+src/
+tsconfig.json
+package-lock.json
+*.map
+`,
+      },
+    ],
+    scripts: {
+      'install:api': `cd src/api && ${pmInstall(config.packageManager)}`,
+      'dev:api': `cd src/api && ${pmRun(config.packageManager, 'start')}`,
+      'build:api': `cd src/api && ${pmRun(config.packageManager, 'build')}`,
+    },
+  };
+}
+
+function itemsFunction(includeAuth: boolean): string {
+  if (!includeAuth) {
+    return `import {
   app,
   HttpRequest,
   HttpResponseInit,
@@ -317,22 +339,161 @@ app.http('deleteItem', {
     return { status: 204 };
   },
 });
-`,
-      },
-      {
-        path: 'src/api/.funcignore',
-        content: `local.settings.json
-src/
-tsconfig.json
-package-lock.json
-*.map
-`,
-      },
-    ],
-    scripts: {
-      'install:api': `cd src/api && ${pmInstall(config.packageManager)}`,
-      'dev:api': `cd src/api && ${pmRun(config.packageManager, 'start')}`,
-      'build:api': `cd src/api && ${pmRun(config.packageManager, 'build')}`,
-    },
-  };
+`;
+  }
+
+  return `import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from '@azure/functions';
+import { requireAuth } from '../lib/auth.js';
+
+interface Item {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+}
+
+// In-memory store for authenticated local development.
+// Every item is scoped to the signed-in SWA user.
+const items: Item[] = [];
+let nextId = 1;
+
+// GET /api/items
+app.http('listItems', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'items',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const currentUser = requireAuth(request);
+    return {
+      jsonBody: items.filter((item) => item.ownerId === currentUser.userId),
+    };
+  },
+});
+
+// GET /api/items/{id}
+app.http('getItem', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'items/{id}',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const currentUser = requireAuth(request);
+    const id = request.params.id;
+    const item = items.find(
+      (candidate) => candidate.id === id && candidate.ownerId === currentUser.userId
+    );
+
+    if (!item) {
+      return { status: 404, jsonBody: { error: 'Item not found' } };
+    }
+
+    return { jsonBody: item };
+  },
+});
+
+// POST /api/items
+app.http('createItem', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'items',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const currentUser = requireAuth(request);
+    const body = (await request.json()) as {
+      title?: string;
+      description?: string;
+    };
+
+    if (!body.title) {
+      return { status: 400, jsonBody: { error: 'Title is required' } };
+    }
+
+    const now = new Date().toISOString();
+    const item: Item = {
+      id: String(nextId++),
+      title: body.title,
+      description: body.description ?? '',
+      createdAt: now,
+      updatedAt: now,
+      ownerId: currentUser.userId,
+    };
+    items.push(item);
+
+    return { status: 201, jsonBody: item };
+  },
+});
+
+// PUT /api/items/{id}
+app.http('updateItem', {
+  methods: ['PUT'],
+  authLevel: 'anonymous',
+  route: 'items/{id}',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const currentUser = requireAuth(request);
+    const id = request.params.id;
+    const index = items.findIndex(
+      (candidate) => candidate.id === id && candidate.ownerId === currentUser.userId
+    );
+
+    if (index === -1) {
+      return { status: 404, jsonBody: { error: 'Item not found' } };
+    }
+
+    const body = (await request.json()) as {
+      title?: string;
+      description?: string;
+    };
+
+    items[index] = {
+      ...items[index],
+      ...(body.title !== undefined && { title: body.title }),
+      ...(body.description !== undefined && { description: body.description }),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return { jsonBody: items[index] };
+  },
+});
+
+// DELETE /api/items/{id}
+app.http('deleteItem', {
+  methods: ['DELETE'],
+  authLevel: 'anonymous',
+  route: 'items/{id}',
+  handler: async (
+    request: HttpRequest,
+    context: InvocationContext
+  ): Promise<HttpResponseInit> => {
+    const currentUser = requireAuth(request);
+    const id = request.params.id;
+    const index = items.findIndex(
+      (candidate) => candidate.id === id && candidate.ownerId === currentUser.userId
+    );
+
+    if (index === -1) {
+      return { status: 404, jsonBody: { error: 'Item not found' } };
+    }
+
+    items.splice(index, 1);
+    return { status: 204 };
+  },
+});
+`;
 }
