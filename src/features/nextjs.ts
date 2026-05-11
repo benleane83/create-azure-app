@@ -14,7 +14,7 @@ export function nextjsFeature(config: ProjectConfig): Feature {
           JSON.stringify(
             {
               name: `${projectName}-web`,
-              version: '0.1.1',
+              version: '0.1.2',
               private: true,
               scripts: {
                 dev: 'next dev',

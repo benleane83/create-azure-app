@@ -30,7 +30,7 @@ export function apiFeature(config: ProjectConfig): Feature {
           JSON.stringify(
             {
               name: `${projectName}-api`,
-              version: '0.1.1',
+              version: '0.1.2',
               private: true,
               type: 'module',
               main: isDrizzle ? 'dist/functions/*.js' : 'dist/src/functions/*.js',

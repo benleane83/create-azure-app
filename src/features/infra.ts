@@ -25,6 +25,8 @@ export function infraFeature(config: InfraConfigOptions): Feature {
       { path: 'infra/main.parameters.json', content: mainParametersJson(config.includeDatabase) },
       { path: 'azure.yaml', content: azureYaml(config) },
       ...(config.includeDatabase ? [
+        { path: 'scripts/load-azd-env.sh', content: loadAzdEnvScript() },
+        { path: 'scripts/load-azd-env.ps1', content: loadAzdEnvPowershellScript() },
         { path: 'scripts/migrate.sh', content: migrateScript(config) },
         { path: 'scripts/migrate.ps1', content: migratePowershellScript(config) },
         { path: 'scripts/seed.sh', content: seedScript(config) },
@@ -614,6 +616,119 @@ hooks:
 // Migration script
 // ---------------------------------------------------------------------------
 
+function loadAzdEnvScript(): string {
+  return `#!/bin/bash
+
+script_dir="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+config_path="$repo_root/.azure/config.json"
+
+if [ ! -f "$config_path" ]; then
+  return 0
+fi
+
+if [ -n "\${AZURE_ENV_NAME:-}" ]; then
+  environment_name="$AZURE_ENV_NAME"
+else
+  environment_name="$(node -e "const fs = require('fs'); try { const config = JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if (config.defaultEnvironment) process.stdout.write(config.defaultEnvironment); } catch {}" "$config_path")"
+fi
+
+if [ -z "$environment_name" ]; then
+  return 0
+fi
+
+env_file_path="$repo_root/.azure/$environment_name/.env"
+if [ ! -f "$env_file_path" ]; then
+  return 0
+fi
+
+while IFS='=' read -r name value; do
+  if [ -z "$name" ]; then
+    continue
+  fi
+
+  case "$name" in
+    \#*)
+      continue
+      ;;
+  esac
+
+  if [ -z "\${!name:-}" ]; then
+    if [ "\${value#\"}" != "$value" ] && [ "\${value%\"}" != "$value" ]; then
+      value="\${value#\"}"
+      value="\${value%\"}"
+    elif [ "\${value#\'}" != "$value" ] && [ "\${value%\'}" != "$value" ]; then
+      value="\${value#\'}"
+      value="\${value%\'}"
+    fi
+
+    export "$name=$value"
+  fi
+done < "$env_file_path"
+`;
+}
+
+function loadAzdEnvPowershellScript(): string {
+  return `$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Resolve-Path (Join-Path $scriptDir "..")
+$configPath = Join-Path $repoRoot ".azure/config.json"
+
+if (-not (Test-Path $configPath)) {
+  return
+}
+
+try {
+  $config = Get-Content $configPath -Raw | ConvertFrom-Json
+} catch {
+  return
+}
+
+$environmentName = if ($env:AZURE_ENV_NAME) {
+  $env:AZURE_ENV_NAME
+} else {
+  $config.defaultEnvironment
+}
+
+if (-not $environmentName) {
+  return
+}
+
+$envFilePath = Join-Path $repoRoot ".azure/$environmentName/.env"
+if (-not (Test-Path $envFilePath)) {
+  return
+}
+
+foreach ($line in Get-Content $envFilePath) {
+  if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith('#')) {
+    continue
+  }
+
+  $parts = $line -split '=', 2
+  if ($parts.Count -ne 2) {
+    continue
+  }
+
+  $name = $parts[0].Trim()
+  $value = $parts[1].Trim()
+  if (-not $name) {
+    continue
+  }
+
+  if ($value.Length -ge 2) {
+    $startsWithDoubleQuote = $value.StartsWith('"') -and $value.EndsWith('"')
+    $startsWithSingleQuote = $value.StartsWith("'") -and $value.EndsWith("'")
+    if ($startsWithDoubleQuote -or $startsWithSingleQuote) {
+      $value = $value.Substring(1, $value.Length - 2)
+    }
+  }
+
+  if (-not (Get-Item "Env:$name" -ErrorAction SilentlyContinue)?.Value) {
+    Set-Item -Path "Env:$name" -Value $value
+  }
+}
+`;
+}
+
 function migrateScript(config: InfraConfigOptions): string {
   const migrateCmd =
     config.orm === 'prisma'
@@ -624,6 +739,7 @@ function migrateScript(config: InfraConfigOptions): string {
 set -e
 
 cd "$(dirname "$0")/.."
+. "$(pwd)/scripts/load-azd-env.sh"
 
 echo "Running database migration..."
 
@@ -680,6 +796,7 @@ function migratePowershellScript(config: InfraConfigOptions): string {
 
 Push-Location (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location ..
+. (Join-Path (Get-Location) "scripts/load-azd-env.ps1")
 
 Write-Host "Running database migration..."
 
@@ -731,6 +848,7 @@ function seedScript(_config: InfraConfigOptions): string {
 set -e
 
 cd "$(dirname "$0")/.."
+. "$(pwd)/scripts/load-azd-env.sh"
 
 echo "🌱 Seeding Azure database..."
 
@@ -776,6 +894,7 @@ function seedPowershellScript(_config: InfraConfigOptions): string {
 
 Push-Location (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location ..
+. (Join-Path (Get-Location) "scripts/load-azd-env.ps1")
 
 Write-Host "🌱 Seeding Azure database..."
 

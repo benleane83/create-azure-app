@@ -10,6 +10,7 @@ dist/
 .next/
 build/
 .svelte-kit/
+src/web/out/
 
 # Environment
 .env
@@ -41,7 +42,7 @@ export function buildRootPackageJson(
 ): string {
   const pkg = {
     name: projectName,
-    version: '0.1.1',
+    version: '0.1.2',
     private: true,
     type: 'module' as const,
     scripts: {
@@ -78,7 +79,7 @@ export function baseFeature(projectName: string, packageManager: PackageManager,
         path: 'README.md',
         content: `# ${projectName}
 
-Built with [create-azure-app](https://github.com/benleane83/create-azure-app).
+Built with [create-azure-app](https://github.com/benleane83/create-azure-app) — a CLI that scaffolds Azure full-stack web app templates instantly. Simply run the CLI, choose your tech stack preferences, and get a complete project with frontend, backend API, infrastructure-as-code (Bicep), and CI/CD workflows pre-configured for Azure deployment.
 
 ## Quick Start (Local Development)
 
