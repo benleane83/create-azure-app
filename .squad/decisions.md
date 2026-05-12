@@ -98,6 +98,49 @@
 - `scripts/migrate.sh` — ORM-aware DB migration (Prisma or Drizzle)
 **Why:** Phase 3 milestone — generated apps can now deploy to Azure with `azd up`.
 
+### 2026-05-07: Pre-Publish Review Priorities
+**By:** Morpheus (Lead) | **Requested by:** Ben Leane
+- Pre-publish blockers identified in scaffolder review: CI/CD resource group naming must follow `AZURE_ENV_NAME`, Prisma seed commands must load `.env`, and duplicate `staticwebapp.config.json` generation remains order-sensitive.
+- Release polish called out for follow-up: package metadata for npm publish, visible `--help` / `--version` flags, and README defaults that match the CLI.
+
+### 2026-05-07: Generated Template Quality Follow-Up
+**By:** Trinity (Full-Stack Dev) | **Requested by:** Ben Leane
+- High-priority template follow-ups: SvelteKit + auth must declare `App.Locals.user`, Prisma API scripts must avoid hardcoded `npm run`, and Drizzle API packaging must carry its runtime DB dependencies into the API sub-project.
+- Example projects must be regenerated when scaffold output changes, especially framework-specific SWA config and package metadata.
+
+### 2026-05-08: Integration Tests Mirror CLI Feature Assembly
+**By:** Mouse (Tester)
+- `tests/integration.test.ts` must include `copilotInstructionsFeature(config)` in `generateProject()` so the integration helper matches the real CLI feature list.
+
+### 2026-05-08: Publish-Readiness Review Fixes
+**By:** Neo | **Requested by:** Ben Leane
+- Resolved six review-driven fixes for publish readiness: package-manager-safe Prisma prestart, `--help` / `--version` support, git-init warning visibility, package metadata fields, and README default alignment.
+
+### 2026-05-08: Copilot Instructions Template Content Rules
+**By:** Trinity | **Requested by:** Ben Leane
+- The auth-specific guidance remains a conditional rule #6 and is omitted entirely when auth is disabled.
+- ORM-specific variation is limited to the schema path; migration and seed guidance stays script-based and shared.
+- Markdown content remains embedded in a TypeScript template literal with escaped inner backticks.
+
+### 2026-05-12: Authenticated Item Templates Use Shared Read Access
+**By:** Trinity (Full-Stack Dev) | **Requested by:** Ben Leane
+- Authenticated starter APIs still require a signed-in user, but authenticated in-memory, Prisma, and Drizzle item handlers no longer scope list/get/update/delete operations to the current principal.
+- Create operations still preserve creator association for database-backed templates.
+- Focused validation recorded with the change: `npx vitest run tests/auth-generation.test.ts` passed.
+
+### 2026-05-12: Committed Database Migrations Ship With Generated Projects
+**By:** Scribe | **Requested by:** Ben Leane
+- Local setup now applies committed migrations for both Prisma and Drizzle and no longer generates migrations during setup.
+- Prisma output now includes a committed starter migration plus `migration_lock.toml`.
+- Drizzle output now includes committed starter migration files, and Azure deploy now runs `drizzle-kit migrate` instead of schema push.
+- Focused validation recorded with the change: `tests/env-generation.test.ts`, `tests/infra-generation.test.ts`, and `tests/database-generation.test.ts` passed.
+
+### 2026-05-12: Generated Shared Repos Keep `.env.docker` Tracked
+**By:** Tank (Infra Dev) | **Requested by:** Ben Leane
+- Generated projects should not ignore `.env.docker`; the file now stays tracked in shared repos.
+- The generator already writes non-secret local Docker Compose defaults there, and `npm run setup` depends on the file when database support is enabled.
+- Existing generated repos created before this fix still need a one-time commit to add `.env.docker`.
+
 ## Governance
 
 - All meaningful changes require team consensus

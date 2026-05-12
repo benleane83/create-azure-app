@@ -28,6 +28,8 @@ services:
       retries: 5
 `;
 
+    const dockerEnvTemplate = `POSTGRES_USER=postgres\nPOSTGRES_PASSWORD=postgres\n`;
+
   return {
     name: 'docker',
     files: [
@@ -36,8 +38,8 @@ services:
         content: composeContent,
       },
       {
-        path: '.env.docker',
-        content: `POSTGRES_USER=postgres\nPOSTGRES_PASSWORD=postgres\n`,
+        path: '.env.docker.example',
+        content: dockerEnvTemplate,
       },
     ],
   };

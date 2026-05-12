@@ -10,7 +10,7 @@ function getFileContent(files: Array<{ path: string; content: string }>, path: s
 }
 
 describe('authenticated API template generation', () => {
-  it('scopes the in-memory API template to the authenticated principal', () => {
+  it('keeps auth enabled for the in-memory API template without scoping items to the current principal', () => {
     const config: ProjectConfig = {
       projectName: 'demo-app',
       framework: 'nextjs',
@@ -25,17 +25,16 @@ describe('authenticated API template generation', () => {
     const itemsContent = getFileContent(feature.files, 'src/api/src/functions/items.ts');
 
     expect(itemsContent).toContain("import { requireAuth } from '../lib/auth.js';");
-    expect(itemsContent).toContain('ownerId: currentUser.userId');
-    expect(itemsContent).toContain('item.ownerId === currentUser.userId');
+    expect(itemsContent).toContain('requireAuth(request);');
+    expect(itemsContent).toContain('return { jsonBody: items };');
+    expect(itemsContent).not.toContain('ownerId');
     expect(itemsContent).not.toContain('userId?: number');
-    expect(itemsContent).toContain("const LOCAL_DEV_USER_ID = 'local-dev-user';");
     expect(itemsContent).toContain("title: 'Create your app'");
     expect(itemsContent).toContain("title: 'Set up CI/CD'");
-    expect(itemsContent).toContain('ownerId: LOCAL_DEV_USER_ID');
     expect(itemsContent).toContain('let nextId = 5;');
   });
 
-  it('generates Prisma handlers that derive ownership from the current principal', () => {
+  it('generates Prisma handlers that require auth without filtering items to the current principal', () => {
     const feature = databaseFeature({
       orm: 'prisma',
       projectName: 'demo-app',
@@ -48,12 +47,16 @@ describe('authenticated API template generation', () => {
     expect(schemaContent).toMatch(/externalId\s+String\s+@unique/);
     expect(itemsContent).toContain("import { requireAuth } from '../lib/auth.js';");
     expect(itemsContent).toContain('where: { externalId: authUser.userId }');
-    expect(itemsContent).toContain('where: { userId: currentUser.id }');
+    expect(itemsContent).toContain("const items = await prisma.item.findMany({ orderBy: { createdAt: 'desc' } });");
+    expect(itemsContent).toContain("const item = await prisma.item.findUnique({ where: { id } });");
+    expect(itemsContent).toContain('userId: currentUser.id');
+    expect(itemsContent).not.toContain('where: { userId: currentUser.id }');
+    expect(itemsContent).not.toContain('findFirst({');
     expect(itemsContent).not.toContain('userId?: number');
     expect(itemsContent).not.toContain("'userId is required'");
   });
 
-  it('generates Drizzle handlers that scope reads and writes to the current principal', () => {
+  it('generates Drizzle handlers that require auth without filtering items to the current principal', () => {
     const feature = databaseFeature({
       orm: 'drizzle',
       projectName: 'demo-app',
@@ -66,7 +69,9 @@ describe('authenticated API template generation', () => {
     expect(schemaContent).toContain("externalId: varchar('external_id', { length: 255 }).notNull().unique()");
     expect(itemsContent).toContain("import { requireAuth } from '../lib/auth.js';");
     expect(itemsContent).toContain('target: users.externalId');
-    expect(itemsContent).toContain('eq(items.userId, currentUser.id)');
+    expect(itemsContent).toContain('.where(eq(items.id, id));');
+    expect(itemsContent).not.toContain('eq(items.userId, currentUser.id)');
+    expect(itemsContent).not.toContain('and(eq(items.id, id), eq(items.userId, currentUser.id))');
     expect(itemsContent).not.toContain('userId?: number');
     expect(itemsContent).not.toContain("'userId is required'");
   });

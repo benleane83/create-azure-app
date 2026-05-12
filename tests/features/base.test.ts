@@ -29,6 +29,12 @@ describe('base feature module', () => {
     expect(gitignore).toContain('.azure/');
   });
 
+  it('does not ignore the local docker env bootstrap file family', () => {
+    const gitignore = getFileContent(baseFeature('test-app', 'npm', true).files, '.gitignore');
+
+    expect(gitignore).not.toContain('.env.docker');
+  });
+
   it('includes database-specific quick start guidance only when the database is enabled', () => {
     const withDb = getFileContent(baseFeature('test-app', 'npm', true).files, 'README.md');
     const withoutDb = getFileContent(baseFeature('test-app', 'npm', false).files, 'README.md');

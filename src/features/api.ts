@@ -356,14 +356,9 @@ interface Item {
   description: string;
   createdAt: string;
   updatedAt: string;
-  ownerId: string;
 }
 
-const LOCAL_DEV_USER_ID = 'local-dev-user';
-
 // In-memory store for authenticated local development.
-// Every item is scoped to the signed-in SWA user.
-// Starter records are assigned to the default local SWA test principal.
 const items: Item[] = [
   {
     id: '1',
@@ -371,7 +366,6 @@ const items: Item[] = [
     description: 'Choose your frontend framework, ORM, and auth preferences to generate your Azure project.',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
-    ownerId: LOCAL_DEV_USER_ID,
   },
   {
     id: '2',
@@ -379,7 +373,6 @@ const items: Item[] = [
     description: 'Run your full stack locally with SWA CLI and hot reload across frontend and API.',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
-    ownerId: LOCAL_DEV_USER_ID,
   },
   {
     id: '3',
@@ -387,7 +380,6 @@ const items: Item[] = [
     description: 'Provision infrastructure and deploy your app in one command with azd up.',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
-    ownerId: LOCAL_DEV_USER_ID,
   },
   {
     id: '4',
@@ -395,7 +387,6 @@ const items: Item[] = [
     description: 'Configure GitHub Actions with OIDC to auto-deploy on push with azd pipeline config.',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
-    ownerId: LOCAL_DEV_USER_ID,
   },
 ];
 let nextId = 5;
@@ -409,10 +400,8 @@ app.http('listItems', {
     request: HttpRequest,
     context: InvocationContext
   ): Promise<HttpResponseInit> => {
-    const currentUser = requireAuth(request);
-    return {
-      jsonBody: items.filter((item) => item.ownerId === currentUser.userId),
-    };
+    requireAuth(request);
+    return { jsonBody: items };
   },
 });
 
@@ -425,11 +414,9 @@ app.http('getItem', {
     request: HttpRequest,
     context: InvocationContext
   ): Promise<HttpResponseInit> => {
-    const currentUser = requireAuth(request);
+    requireAuth(request);
     const id = request.params.id;
-    const item = items.find(
-      (candidate) => candidate.id === id && candidate.ownerId === currentUser.userId
-    );
+    const item = items.find((candidate) => candidate.id === id);
 
     if (!item) {
       return { status: 404, jsonBody: { error: 'Item not found' } };
@@ -448,7 +435,7 @@ app.http('createItem', {
     request: HttpRequest,
     context: InvocationContext
   ): Promise<HttpResponseInit> => {
-    const currentUser = requireAuth(request);
+    requireAuth(request);
     const body = (await request.json()) as {
       title?: string;
       description?: string;
@@ -465,7 +452,6 @@ app.http('createItem', {
       description: body.description ?? '',
       createdAt: now,
       updatedAt: now,
-      ownerId: currentUser.userId,
     };
     items.push(item);
 
@@ -482,11 +468,9 @@ app.http('updateItem', {
     request: HttpRequest,
     context: InvocationContext
   ): Promise<HttpResponseInit> => {
-    const currentUser = requireAuth(request);
+    requireAuth(request);
     const id = request.params.id;
-    const index = items.findIndex(
-      (candidate) => candidate.id === id && candidate.ownerId === currentUser.userId
-    );
+    const index = items.findIndex((candidate) => candidate.id === id);
 
     if (index === -1) {
       return { status: 404, jsonBody: { error: 'Item not found' } };
@@ -517,11 +501,9 @@ app.http('deleteItem', {
     request: HttpRequest,
     context: InvocationContext
   ): Promise<HttpResponseInit> => {
-    const currentUser = requireAuth(request);
+    requireAuth(request);
     const id = request.params.id;
-    const index = items.findIndex(
-      (candidate) => candidate.id === id && candidate.ownerId === currentUser.userId
-    );
+    const index = items.findIndex((candidate) => candidate.id === id);
 
     if (index === -1) {
       return { status: 404, jsonBody: { error: 'Item not found' } };

@@ -195,9 +195,9 @@ When disabled, the API returns in-memory mock data and no database infrastructur
 
 Only relevant when database is enabled.
 
-**Prisma** (default) — Schema-first ORM with auto-generated TypeScript client. The generated API endpoints use Prisma for all database operations (CRUD on Items + Users). Migrations via `prisma migrate`.
+**Prisma** (default) — Schema-first ORM with auto-generated TypeScript client. The generated API endpoints use Prisma for all database operations (CRUD on Items + Users). New projects ship with a committed starter migration, local setup applies it with `prisma migrate deploy`, and `db:migrate:dev` remains available when you need to author a new migration.
 
-**Drizzle** — Lightweight, SQL-like ORM with zero codegen. Same generated CRUD endpoints wired up with Drizzle queries. Migrations via `drizzle-kit`.
+**Drizzle** — Lightweight, SQL-like ORM with zero codegen. Same generated CRUD endpoints wired up with Drizzle queries. New projects ship with committed `db/migrations` files, `db:migrate` applies them, and `db:generate` / `db:push` remain explicit authoring escape hatches.
 
 ### Authentication
 
@@ -216,14 +216,16 @@ After scaffolding, your project includes these root-level scripts:
 
 | Script | Description |
 |---|---|
-| `npm run setup` | Install root + sub-project deps (+ start Docker Postgres, migrate, seed when DB enabled) |
+| `npm run setup` | Install root + sub-project deps (+ start Docker Postgres, apply committed migrations, seed when DB enabled) |
 | `npm run dev` | Start SWA CLI (frontend + API + auth on :4280) |
 | `npm run build` | Build frontend and API |
 | `npm run dev:web` | Start frontend dev server only |
 | `npm run dev:api` | Start Azure Functions only |
-| `npm run db:migrate` | Run database migrations *(DB only)* |
+| `npm run db:migrate` | Apply committed database migrations *(DB only)* |
+| `npm run db:migrate:dev` | Create and apply a new Prisma migration during development *(Prisma only)* |
+| `npm run db:generate` | Generate the Prisma client or author the next Drizzle migration *(DB only)* |
 | `npm run db:seed` | Seed the database *(DB only)* |
-| `npm run db:push` | Push schema changes without a migration file *(DB only)* |
+| `npm run db:push` | Push schema changes without a migration file *(Drizzle only, explicit authoring only)* |
 | `npm run install:web` | Install frontend sub-project dependencies |
 | `npm run install:api` | Install API sub-project dependencies |
 

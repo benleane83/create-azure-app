@@ -86,6 +86,15 @@ export function baseFeature(
 
 Built with [create-azure-app](https://github.com/benleane83/create-azure-app) — a CLI that scaffolds Azure full-stack web app templates instantly. Simply run the CLI, choose your tech stack preferences, and get a complete project with frontend, backend API, infrastructure-as-code (Bicep), and CI/CD workflows pre-configured for Azure deployment.
 
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) 20+
+- [Azure Developer CLI (azd)](https://aka.ms/azd)
+- [Docker](https://www.docker.com/) (optional, only required when DB is included)
+- [GitHub CLI (gh)](https://cli.github.com/) (optional, for CI/CD setup)
+
+> **Note:** SWA CLI and Azure Functions Core Tools are installed as project dev dependencies — no global install needed.
+
 ## Quick Start (Local Development)
 
 \`\`\`bash

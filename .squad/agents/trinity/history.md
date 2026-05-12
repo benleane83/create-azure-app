@@ -9,6 +9,11 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-05-12 — Authenticated items handlers no longer scope reads by principal
+- Updated `src/features/api.ts` so the authenticated in-memory `src/api/src/functions/items.ts` template still calls `requireAuth()` but no longer stores or filters by `ownerId`.
+- Updated `src/features/database.ts` so authenticated Prisma and Drizzle item handlers still require auth, still associate newly created DB records to the current user, but no longer filter list/get/update/delete by the caller's user id.
+- Updated `tests/auth-generation.test.ts` to assert authenticated access without per-user filtering and to preserve Prisma's creator association on POST.
+
 ### 2026-05-08 — copilot-instructions feature module
 - Created `src/features/copilot-instructions.ts` — generates `.github/copilot-instructions.md` in scaffolded projects.
 - Pattern: extract all conditional strings as variables at top of function body, then compose a single clean template literal. Avoids inline ternaries inside template strings.

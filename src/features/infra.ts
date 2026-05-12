@@ -563,7 +563,7 @@ function azureYaml(config: InfraConfigOptions): string {
 
   const isPrisma = config.includeDatabase && config.orm === 'prisma';
   const prismaPreWin = isPrisma ? `
-      ${generateCmd}
+        ${generateCmd}
 ` : '';
   const prismaPostWin = isPrisma ? `
         cd ../..
@@ -572,7 +572,7 @@ function azureYaml(config: InfraConfigOptions): string {
         Get-ChildItem "src/api/node_modules/.prisma/client" -Filter *.node | Where-Object { $_.Name -notlike '*debian*' } | Remove-Item -Force -ErrorAction SilentlyContinue
 ` : '';
   const prismaPrePosix = isPrisma ? `
-      ${generateCmd}
+        ${generateCmd}
 ` : '';
   const prismaPostPosix = isPrisma ? `
         cd ../..
@@ -734,7 +734,7 @@ function migrateScript(config: InfraConfigOptions): string {
   const migrateCmd =
     config.orm === 'prisma'
       ? 'npx prisma migrate deploy --schema=db/schema.prisma'
-      : 'npx drizzle-kit push';
+      : 'npx drizzle-kit migrate';
 
   return `#!/bin/bash
 set -e
@@ -791,7 +791,7 @@ function migratePowershellScript(config: InfraConfigOptions): string {
   const migrateCmd =
     config.orm === 'prisma'
       ? 'npx prisma migrate deploy --schema=db/schema.prisma'
-      : 'npx drizzle-kit push';
+      : 'npx drizzle-kit migrate';
 
   return `$ErrorActionPreference = "Stop"
 
@@ -840,11 +840,19 @@ Pop-Location
 `;
 }
 
+function seedCommand(config: InfraConfigOptions): string {
+  return config.orm === 'prisma'
+    ? 'npx tsx db/seed.ts'
+    : 'npx tsx src/api/src/db/seed.ts';
+}
+
 // ---------------------------------------------------------------------------
 // Seed script (POSIX)
 // ---------------------------------------------------------------------------
 
-function seedScript(_config: InfraConfigOptions): string {
+function seedScript(config: InfraConfigOptions): string {
+  const seedCmd = seedCommand(config);
+
   return `#!/bin/bash
 set -e
 
@@ -872,7 +880,7 @@ az postgres flexible-server firewall-rule create \\
   --start-ip-address "\$MY_IP" \\
   --end-ip-address "\$MY_IP" 2>/dev/null || true
 
-npx tsx db/seed.ts
+${seedCmd}
 
 # Close temporary firewall rule
 echo "Closing firewall rule..."
@@ -890,7 +898,9 @@ echo "✅ Seed complete."
 // Seed script (PowerShell — Windows)
 // ---------------------------------------------------------------------------
 
-function seedPowershellScript(_config: InfraConfigOptions): string {
+function seedPowershellScript(config: InfraConfigOptions): string {
+  const seedCmd = seedCommand(config);
+
   return `$ErrorActionPreference = "Stop"
 
 Push-Location (Split-Path -Parent $MyInvocation.MyCommand.Path)
@@ -920,7 +930,7 @@ az postgres flexible-server firewall-rule create \`
   --end-ip-address $myIp 2>$null
 
 try {
-  npx tsx db/seed.ts
+  ${seedCmd}
 } finally {
   Write-Host "Closing firewall rule..."
   az postgres flexible-server firewall-rule delete \`

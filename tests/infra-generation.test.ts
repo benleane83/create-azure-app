@@ -66,6 +66,8 @@ describe('infra feature generation', () => {
     expect(azureYaml).toContain('postprovision:');
     expect(migrateScript).toContain('az keyvault secret show');
     expect(migrateScript).toContain('az postgres flexible-server firewall-rule create');
+    expect(migrateScript).toContain('npx drizzle-kit migrate');
+    expect(migrateScript).not.toContain('drizzle-kit push');
   });
 
   it('adds prisma-specific packaging hooks only for prisma projects', () => {
@@ -98,5 +100,34 @@ describe('infra feature generation', () => {
     expect(drizzleYaml).not.toContain('slim-swa-api-package');
     expect(prismaYaml).toContain('dist: build');
     expect(drizzleYaml).toContain('dist: build');
+  });
+
+  it('generates ORM-aware Azure seed script paths for POSIX and PowerShell', () => {
+    const prisma = infraFeature({
+      projectName: 'demo-app',
+      orm: 'prisma',
+      includeAuth: true,
+      includeDatabase: true,
+      framework: 'vite-react',
+      packageManager: 'npm',
+    });
+    const drizzle = infraFeature({
+      projectName: 'demo-app',
+      orm: 'drizzle',
+      includeAuth: true,
+      includeDatabase: true,
+      framework: 'vite-react',
+      packageManager: 'npm',
+    });
+
+    const prismaSeedSh = getFileContent(prisma.files, 'scripts/seed.sh');
+    const prismaSeedPs1 = getFileContent(prisma.files, 'scripts/seed.ps1');
+    const drizzleSeedSh = getFileContent(drizzle.files, 'scripts/seed.sh');
+    const drizzleSeedPs1 = getFileContent(drizzle.files, 'scripts/seed.ps1');
+
+    expect(prismaSeedSh).toContain('npx tsx db/seed.ts');
+    expect(prismaSeedPs1).toContain('npx tsx db/seed.ts');
+    expect(drizzleSeedSh).toContain('npx tsx src/api/src/db/seed.ts');
+    expect(drizzleSeedPs1).toContain('npx tsx src/api/src/db/seed.ts');
   });
 });

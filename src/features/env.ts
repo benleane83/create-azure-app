@@ -10,6 +10,63 @@ interface EnvConfigOptions {
   packageManager: PackageManager;
 }
 
+function getSetupCommands(config: EnvConfigOptions): string[] {
+  return [
+    pmInstall(config.packageManager),
+    ...(config.includeDatabase ? ['docker compose up -d'] : []),
+    pmRun(config.packageManager, 'install:api'),
+    pmRun(config.packageManager, 'install:web'),
+    pmRun(config.packageManager, 'build:api'),
+    ...(config.includeDatabase ? [
+      pmRun(config.packageManager, 'db:migrate'),
+      pmRun(config.packageManager, 'db:seed'),
+    ] : []),
+  ];
+}
+
+function buildSetupScriptContent(config: EnvConfigOptions): string {
+  const lines = [
+    "import { execSync } from 'node:child_process';",
+    ...(config.includeDatabase ? ["import { copyFileSync, existsSync } from 'node:fs';"] : []),
+    ...(config.includeDatabase ? ["import { join } from 'node:path';"] : []),
+    "import { fileURLToPath } from 'node:url';",
+    '',
+    `const commands = ${JSON.stringify(getSetupCommands(config), null, 2)};`,
+    '',
+    ...(config.includeDatabase ? [
+      'export function ensureDockerEnvFile(projectDir = process.cwd()) {',
+      "  const dockerEnvPath = join(projectDir, '.env.docker');",
+      '',
+      '  if (!existsSync(dockerEnvPath)) {',
+      "    copyFileSync(join(projectDir, '.env.docker.example'), dockerEnvPath);",
+      '  }',
+      '}',
+      '',
+    ] : []),
+    'export function getSetupCommands() {',
+    '  return [...commands];',
+    '}',
+    '',
+    'export function runSetup() {',
+    ...(config.includeDatabase ? [
+      '  ensureDockerEnvFile();',
+      '',
+    ] : []),
+    '  for (const command of commands) {',
+    '    console.log(`> ${command}`);',
+    "    execSync(command, { stdio: 'inherit', shell: true });",
+    '  }',
+    '}',
+    '',
+    'if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {',
+    '  runSetup();',
+    '}',
+    '',
+  ];
+
+  return lines.join('\n');
+}
+
 function buildEnvContent(config: EnvConfigOptions): string {
   const lines: string[] = [];
 
@@ -79,6 +136,10 @@ export function envFeature(config: EnvConfigOptions): Feature {
       path: '.env',
       content: buildEnvContent(config),
     },
+    {
+      path: 'scripts/setup.mjs',
+      content: buildSetupScriptContent(config),
+    },
   ];
 
   // pnpm uses symlinks for node_modules which Azure Functions Core Tools
@@ -99,18 +160,7 @@ export function envFeature(config: EnvConfigOptions): Feature {
       'azure-functions-core-tools': '^4.0.0',
     },
     scripts: {
-      setup: [
-        pmInstall(config.packageManager),
-        ...(config.includeDatabase ? ['docker compose up -d'] : []),
-        pmRun(config.packageManager, 'install:api'),
-        pmRun(config.packageManager, 'install:web'),
-        pmRun(config.packageManager, 'build:api'),
-        ...(config.includeDatabase ? [
-          pmRun(config.packageManager, 'db:generate'),
-          pmRun(config.packageManager, 'db:migrate'),
-          pmRun(config.packageManager, 'db:seed'),
-        ] : []),
-      ].join(' && '),
+      setup: 'node ./scripts/setup.mjs',
       dev: 'swa start',
     },
   };

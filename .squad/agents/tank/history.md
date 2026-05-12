@@ -44,3 +44,8 @@
 - Removed local `type Framework` redefinitions from `src/features/cicd.ts`, `src/features/swa-config.ts`, `src/features/tailwind.ts` — now import from `../index.js`
 - Removed local `type PackageManager` from `src/features/cicd.ts` — now imports from `../utils.js`
 - Pattern: canonical type sources are `src/index.ts` (Framework, ORM, ProjectConfig) and `src/utils.ts` (PackageManager)
+
+### 2026-05-12: Generated shared repos must keep `.env.docker`
+- Root cause for missing `.env.docker` in generated shared repos was the base feature adding that file to generated `.gitignore` output.
+- `.env.docker` is non-secret local Docker Compose config in this project; generated repos should track it so `npm run setup` works on first pull.
+- Focused regression coverage lives in `tests/features/base.test.ts` alongside the base feature behavior.
