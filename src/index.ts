@@ -174,7 +174,12 @@ Run without options for the interactive setup wizard.`);
     sveltekitFeature(config);
 
   const features = [
-    baseFeature(config.projectName, config.packageManager, config.includeDatabase),
+    baseFeature(
+      config.projectName,
+      config.packageManager,
+      config.includeDatabase,
+      config.includeAuth
+    ),
     frameworkFeature,
     apiFeature(config),
     ...(config.includeDatabase ? [

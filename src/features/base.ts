@@ -67,7 +67,12 @@ function sortObject(obj: Record<string, string>): Record<string, string> {
  * The root package.json is NOT included here — it's generated separately via
  * buildRootPackageJson() after all features are composed, so it can merge all deps/scripts.
  */
-export function baseFeature(projectName: string, packageManager: PackageManager, includeDatabase = true): Feature {
+export function baseFeature(
+  projectName: string,
+  packageManager: PackageManager,
+  includeDatabase = true,
+  includeAuth = false
+): Feature {
   return {
     name: 'base',
     files: [
@@ -94,7 +99,9 @@ ${pmRun(packageManager, 'setup')}
 ${pmRun(packageManager, 'dev')}
 \`\`\`
 
-## Deploy to Azure
+${includeAuth && !includeDatabase ? `When auth is enabled without a database, the starter API seeds four in-memory items for the local SWA test principal \`local-dev-user\`. If you use a different mocked client principal in local development, update \`src/api/src/functions/items.ts\` to match its \`userId\`.
+
+` : ''}## Deploy to Azure
 
 ### First-time setup
 

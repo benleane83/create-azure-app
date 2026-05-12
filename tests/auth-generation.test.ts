@@ -28,6 +28,11 @@ describe('authenticated API template generation', () => {
     expect(itemsContent).toContain('ownerId: currentUser.userId');
     expect(itemsContent).toContain('item.ownerId === currentUser.userId');
     expect(itemsContent).not.toContain('userId?: number');
+    expect(itemsContent).toContain("const LOCAL_DEV_USER_ID = 'local-dev-user';");
+    expect(itemsContent).toContain("title: 'Create your app'");
+    expect(itemsContent).toContain("title: 'Set up CI/CD'");
+    expect(itemsContent).toContain('ownerId: LOCAL_DEV_USER_ID');
+    expect(itemsContent).toContain('let nextId = 5;');
   });
 
   it('generates Prisma handlers that derive ownership from the current principal', () => {

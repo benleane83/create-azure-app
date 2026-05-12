@@ -39,6 +39,17 @@ describe('base feature module', () => {
     expect(withoutDb).not.toContain('start local PostgreSQL');
   });
 
+  it('documents the local auth seed principal only for auth-enabled no-database apps', () => {
+    const authNoDb = getFileContent(baseFeature('test-app', 'pnpm', false, true).files, 'README.md');
+    const authWithDb = getFileContent(baseFeature('test-app', 'pnpm', true, true).files, 'README.md');
+    const noAuthNoDb = getFileContent(baseFeature('test-app', 'pnpm', false, false).files, 'README.md');
+
+    expect(authNoDb).toContain('local-dev-user');
+    expect(authNoDb).toContain('starter API seeds four in-memory items');
+    expect(authWithDb).not.toContain('local-dev-user');
+    expect(noAuthNoDb).not.toContain('local-dev-user');
+  });
+
   it('references the web and api workspaces in the root tsconfig', () => {
     const tsconfig = JSON.parse(getFileContent(baseFeature('test-app', 'npm', true).files, 'tsconfig.json')) as {
       references: Array<{ path: string }>;

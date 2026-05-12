@@ -10,4 +10,4 @@ node_modules/
 dist/
 
 # Generated app output folders
-/coffee*/
+/azure-swa*/
